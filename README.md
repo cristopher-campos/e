@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -588,7 +589,7 @@
         <h1 id="mainTitle" class="text-4xl font-bold mb-8 text-white text-center">🎮 Mejora con Juegos 🚀</h1>
 
         <!-- Botón de prueba de JavaScript (NUEVO) -->
-        <button id="testJsButton" class="app-button mb-8" onclick="console.log('Botón de prueba de JS clicado!'); alert('Botón de prueba de JS clicado!');">
+        <button id="testJsButton" class="app-button mb-8">
             Test JS Button
         </button>
 
@@ -819,6 +820,9 @@
     <!-- Version Display (New) -->
     <div id="versionDisplay" class="text-xs text-gray-500 mt-4 mb-2">v1.0.0</div>
 
+    <!-- New: Visual JS Ready Indicator -->
+    <div id="jsReadyIndicator" style="position: fixed; bottom: 10px; right: 10px; background-color: #333; color: #fff; padding: 5px 10px; border-radius: 5px; font-size: 12px; z-index: 9999;">Cargando JS...</div>
+
     <script type="module">
         // Import Firebase functions from the global 'firebase' object exposed by the script above
         const { db, auth, appId, onAuthStateChanged, signInAnonymously, signInWithCustomToken,
@@ -835,7 +839,7 @@
                 } else {
                     console.warn("Element with ID 'userIdDisplay' not found on auth state change.");
                 }
-                console.log("User ID set:", currentUserId);
+                console.log("User signed in:", currentUserId);
             } else {
                 currentUserId = null;
                 const userIdDisplayElement = document.getElementById('userIdDisplay');
@@ -851,6 +855,26 @@
         let isMasterMuted = false;
         let mainMenuSynth;
         let mainMenuSequence;
+
+        // Function to toggle global mute state (MOVED HERE TO BE DEFINED EARLIER)
+        function toggleGlobalMute() {
+            isMasterMuted = !isMasterMuted;
+            if (globalMuteButton) {
+                globalMuteButton.textContent = isMasterMuted ? "Activar Sonido" : "Silenciar Todo";
+            }
+
+            // Actualizar volumen de todos los synths
+            if (mainMenuSynth) mainMenuSynth.volume.value = isMasterMuted ? -100 : -25;
+            if (backgroundSynthAsteroids) backgroundSynthAsteroids.volume.value = isMasterMuted ? -100 : -15;
+            if (memoramaSynth) memoramaSynth.volume.value = isMasterMuted ? -100 : -15;
+            if (lowTimeSynthMemorama) lowTimeSynthMemorama.volume.value = isMasterMuted ? -100 : -10;
+            if (spellingCorrectSynth) spellingCorrectSynth.volume.value = isMasterMuted ? -100 : -15;
+            if (spellingIncorrectSynth) spellingIncorrectSynth.volume.value = isMasterMuted ? -100 : -15;
+            if (backgroundSynthSpelling) backgroundSynthSpelling.volume.value = isMasterMuted ? -100 : -20;
+            if (quickMathCorrectSynth) quickMathCorrectSynth.volume.value = isMasterMuted ? -100 : -15;
+            if (quickMathIncorrectSynth) quickMathIncorrectSynth.volume.value = isMasterMuted ? -100 : -15;
+            if (quickMathBackgroundSynth) quickMathBackgroundSynth.volume.value = isMasterMuted ? -100 : -20;
+        }
 
         // --- Referencias y Lógica de la Aplicación Principal ---
         const mainTitle = document.getElementById('mainTitle');
@@ -868,6 +892,7 @@
         const spellingGameContainer = document.getElementById('spellingGame');
         const quickMathGameContainer = document.getElementById('quickMathGame');
         const globalMuteButton = document.getElementById('globalMuteButton');
+        const testJsButton = document.getElementById('testJsButton'); // Reference to the test button
 
         // Modal elements
         const gameModal = document.getElementById('gameModal');
@@ -882,9 +907,13 @@
         const cancelLeaderboardSubmissionButton = document.getElementById('cancelLeaderboardSubmissionButton');
         let currentScoreToSubmit = { game: '', score: 0, time: 0 }; // To hold score data for submission
 
+        // New: Visual JS Ready Indicator
+        const jsReadyIndicator = document.getElementById('jsReadyIndicator');
+
+
         function showModal(title, message, buttonText = "Cerrar", callback = null) {
             if (!modalTitle || !modalMessage || !modalButton || !gameModal) {
-                console.error("Modal elements not found for showModal.");
+                console.error("Modal elements not found for showModal. Falling back to alert.");
                 alert(`Modal Error: ${title} - ${message}`); // Fallback to alert if modal elements are missing
                 if (callback) callback();
                 return;
@@ -919,6 +948,7 @@
             }
         }
 
+        // Attach event listeners for Leaderboard Submission Modal
         if (submitLeaderboardScoreButton) {
             submitLeaderboardScoreButton.addEventListener('click', async () => {
                 const playerName = playerNameInput.value.trim();
@@ -962,8 +992,9 @@
                     hideLeaderboardSubmissionModal();
                 }
             });
+            console.log("Event listener attached to: submitLeaderboardScoreButton");
         } else {
-            console.warn("Element with ID 'submitLeaderboardScoreButton' not found.");
+            console.error("Error: Button with ID 'submitLeaderboardScoreButton' not found.");
         }
 
         if (cancelLeaderboardSubmissionButton) {
@@ -971,8 +1002,9 @@
                 hideLeaderboardSubmissionModal();
                 showMainMenu(); // Go back to main menu if user cancels submission
             });
+            console.log("Event listener attached to: cancelLeaderboardSubmissionButton");
         } else {
-            console.warn("Element with ID 'cancelLeaderboardSubmissionButton' not found.");
+            console.error("Error: Button with ID 'cancelLeaderboardSubmissionButton' not found.");
         }
 
 
@@ -987,6 +1019,7 @@
             if (quickMathGameDescription) quickMathGameDescription.style.display = 'none'; else console.warn("quickMathGameDescription not found.");
             if (startGameQuickMathButton) startGameQuickMathButton.style.display = 'none'; else console.warn("startGameQuickMathButton not found.");
             if (globalMuteButton) globalMuteButton.style.display = 'none'; else console.warn("globalMuteButton not found.");
+            if (testJsButton) testJsButton.style.display = 'none'; // Hide test button
             if (gameArea) gameArea.style.display = 'flex'; else console.warn("gameArea not found.");
             stopMainMenuMusic();
         }
@@ -1002,6 +1035,7 @@
             if (quickMathGameDescription) quickMathGameDescription.style.display = 'block';
             if (startGameQuickMathButton) startGameQuickMathButton.style.display = 'block';
             if (globalMuteButton) globalMuteButton.style.display = 'block';
+            if (testJsButton) testJsButton.style.display = 'block'; // Show test button
             if (gameArea) gameArea.style.display = 'none';
 
             // Ensure all game containers are hidden when returning to main menu
@@ -1133,33 +1167,6 @@
                 mainMenuSequence.stop();
             }
         }
-
-        if (globalMuteButton) {
-            globalMuteButton.addEventListener('click', toggleGlobalMute);
-        } else {
-            console.warn("Element with ID 'globalMuteButton' not found.");
-        }
-
-
-        function toggleGlobalMute() {
-            isMasterMuted = !isMasterMuted;
-            if (globalMuteButton) {
-                globalMuteButton.textContent = isMasterMuted ? "Activar Sonido" : "Silenciar Todo";
-            }
-
-            // Actualizar volumen de todos los synths
-            if (mainMenuSynth) mainMenuSynth.volume.value = isMasterMuted ? -100 : -25;
-            if (backgroundSynthAsteroids) backgroundSynthAsteroids.volume.value = isMasterMuted ? -100 : -15;
-            if (memoramaSynth) memoramaSynth.volume.value = isMasterMuted ? -100 : -15;
-            if (lowTimeSynthMemorama) lowTimeSynthMemorama.volume.value = isMasterMuted ? -100 : -10;
-            if (spellingCorrectSynth) spellingCorrectSynth.volume.value = isMasterMuted ? -100 : -15;
-            if (spellingIncorrectSynth) spellingIncorrectSynth.volume.value = isMasterMuted ? -100 : -15;
-            if (backgroundSynthSpelling) backgroundSynthSpelling.volume.value = isMasterMuted ? -100 : -20;
-            if (quickMathCorrectSynth) quickMathCorrectSynth.volume.value = isMasterMuted ? -100 : -15;
-            if (quickMathIncorrectSynth) quickMathIncorrectSynth.volume.value = isMasterMuted ? -100 : -15;
-            if (quickMathBackgroundSynth) quickMathBackgroundSynth.volume.value = isMasterMuted ? -100 : -20;
-        }
-
 
         // --- Lógica del Minijuego Esquiva los Asteroides ---
         const canvasAsteroids = document.getElementById('gameCanvasAsteroids');
@@ -1837,18 +1844,6 @@
             confetti.forEach(p => p.draw());
         }
 
-        if (startScreenButtonAsteroids) {
-            startScreenButtonAsteroids.addEventListener('click', startGameAsteroidsLogic);
-        } else {
-            console.warn("Element with ID 'startScreenButtonAsteroids' not found.");
-        }
-        if (backToMenuButtonAsteroids) {
-            backToMenuButtonAsteroids.addEventListener('click', showMainMenu);
-        } else {
-            console.warn("Element with ID 'backToMenuButtonAsteroids' not found.");
-        }
-
-
         // --- Lógica del Minijuego Memorama ---
         const gameBoardMemorama = document.getElementById('gameBoardMemorama');
         const timeDisplayMemorama = document.getElementById('timeDisplayMemorama');
@@ -1879,7 +1874,7 @@
         let lowTimeSequenceMemorama;
         let isLowTimeMusicPlaying = false;
 
-        const EMOJIS = ['🍎', '🍌', '🍒', '🍇', '🍋', '🥝', '🍓', '🍍', '🍉', '🍊', '🍐', '🍑'];
+        const EMOJIS = ['🍎', '🍌', '🍒', '🍇', '🍋', '🥝', '🍓', '🍍', '🍉', '🍊', '�', '🍑'];
 
         function setupAudioMemorama() {
             if (!memoramaSynth) {
@@ -2118,18 +2113,6 @@
             }
             showModal(title, message, "Volver al Menú Principal", showMainMenu);
         }
-
-        if (startScreenButtonMemorama) {
-            startScreenButtonMemorama.addEventListener('click', startGameMemoramaLogic);
-        } else {
-            console.warn("Element with ID 'startScreenButtonMemorama' not found.");
-        }
-        if (backToMenuButtonMemorama) {
-            backToMenuButtonMemorama.addEventListener('click', showMainMenu);
-        } else {
-            console.warn("Element with ID 'backToMenuButtonMemorama' not found.");
-        }
-
 
         // --- Lógica del Minijuego Ortografía Correcta (Nuevo) ---
         const wordDisplay = document.getElementById('wordDisplay');
@@ -2511,7 +2494,7 @@
                     }
                 } else {
                     title = "¡Juego Terminado!";
-                    message = `Te quedaste sin vidas. Acertaste ${scoreSpelling} de ${totalWordsPresented} palabras. ¡Sigue practicando!`;
+                    message = `Te quedaste sin vidas. Acertaste ${scoreSpelling} de ${totalProblemsPresented} palabras. ¡Sigue practicando!`;
                 }
             }
             showModal(title, message, "Volver al Menú Principal", showMainMenu);
@@ -2548,9 +2531,11 @@
                     // Fetch top 10 by score, then sort by timestamp in JS if scores are tied
                     // NOTE: This query requires appropriate Firebase Security Rules to allow read access.
                     // Example rule for public data:
-                    // match /artifacts/{appId}/public/data/{collectionId}/{document=**} {
-                    //   allow read: if request.auth != null;
-                    //   allow write: if request.auth != null;
+                    // match /databases/{database}/documents {
+                    //   match /artifacts/{appId}/public/data/{collectionId}/{document=**} {
+                    //     allow read: if request.auth != null;
+                    //     allow write: if request.auth != null;
+                    //   }
                     // }
                     const q = query(collection(db, `artifacts/${appId}/public/data/spellingFreeModeLeaderboard`), orderBy("score", "desc"), limit(10));
                     const querySnapshot = await getDocs(q);
@@ -2599,45 +2584,6 @@
 
             if (spellingResultsContainer) spellingResultsContainer.classList.remove('hidden');
         }
-
-        if (combinedLevelButtonSpelling) {
-            combinedLevelButtonSpelling.addEventListener('click', () => {
-                currentSpellingMode = 'combinedLevel';
-                fetchWordsFromGemini('combinedLevel');
-            });
-        } else {
-            console.warn("Element with ID 'combinedLevelButtonSpelling' not found.");
-        }
-        if (freeModeButtonSpelling) {
-            freeModeButtonSpelling.addEventListener('click', () => {
-                currentSpellingMode = 'freeMode';
-                fetchWordsFromGemini('freeMode');
-            });
-        } else {
-            console.warn("Element with ID 'freeModeButtonSpelling' not found.");
-        }
-
-        if (correctButton) {
-            correctButton.addEventListener('click', () => checkAnswer(true));
-        } else {
-            console.warn("Element with ID 'correctButton' not found.");
-        }
-        if (incorrectButton) {
-            incorrectButton.addEventListener('click', () => checkAnswer(false));
-        } else {
-            console.warn("Element with ID 'incorrectButton' not found.");
-        }
-        if (backToMenuButtonSpelling) {
-            backToMenuButtonSpelling.addEventListener('click', showMainMenu);
-        } else {
-            console.warn("Element with ID 'backToMenuButtonSpelling' not found.");
-        }
-        if (backToMenuButtonSpellingStartScreen) {
-            backToMenuButtonSpellingStartScreen.addEventListener('click', showMainMenu);
-        } else {
-            console.warn("Element with ID 'backToMenuButtonSpellingStartScreen' not found.");
-        }
-
 
         // --- Lógica del Minijuego Sumas Rápidas (Nuevo) ---
         const problemDisplay = document.getElementById('problemDisplay');
@@ -2977,9 +2923,11 @@
                     // Fetch top 10 by score, then sort by timestamp in JS if scores are tied
                     // NOTE: This query requires appropriate Firebase Security Rules to allow read access.
                     // Example rule for public data:
-                    // match /artifacts/{appId}/public/data/{collectionId}/{document=**} {
-                    //   allow read: if request.auth != null;
-                    //   allow write: if request.auth != null;
+                    // match /databases/{database}/documents {
+                    //   match /artifacts/{appId}/public/data/{collectionId}/{document=**} {
+                    //     allow read: if request.auth != null;
+                    //     allow write: if request.auth != null;
+                    //   }
                     // }
                     const q = query(collection(db, `artifacts/${appId}/public/data/quickMathFreeModeLeaderboard`), orderBy("score", "desc"), limit(10));
                     const querySnapshot = await getDocs(q);
@@ -3029,106 +2977,234 @@
             if (quickMathResultsContainer) quickMathResultsContainer.classList.remove('hidden');
         }
 
-        if (combinedLevelButtonQuickMath) {
-            combinedLevelButtonQuickMath.addEventListener('click', () => {
-                currentQuickMathMode = 'combinedLevel';
-                startGameQuickMathLogic();
-            });
-        } else {
-            console.warn("Element with ID 'combinedLevelButtonQuickMath' not found.");
-        }
-        if (freeModeButtonQuickMath) {
-            freeModeButtonQuickMath.addEventListener('click', () => {
-                currentQuickMathMode = 'freeMode';
-                startGameQuickMathLogic();
-            });
-        } else {
-            console.warn("Element with ID 'freeModeButtonQuickMath' not found.");
-        }
-
-        if (submitAnswerButton) {
-            submitAnswerButton.addEventListener('click', checkAnswerQuickMath);
-        } else {
-            console.warn("Element with ID 'submitAnswerButton' not found.");
-        }
-        if (answerInput) {
-            answerInput.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter') {
-                    checkAnswerQuickMath();
-                }
-            });
-        } else {
-            console.warn("Element with ID 'answerInput' not found for keydown listener.");
-        }
-        if (backToMenuButtonQuickMath) {
-            backToMenuButtonQuickMath.addEventListener('click', showMainMenu);
-        } else {
-            console.warn("Element with ID 'backToMenuButtonQuickMath' not found.");
-        }
-        if (backToMenuButtonQuickMathStartScreen) {
-            backToMenuButtonQuickMathStartScreen.addEventListener('click', showMainMenu);
-        } else {
-            console.warn("Element with ID 'backToMenuButtonQuickMathStartScreen' not found.");
-        }
-
 
         // --- Lógica de Inicio y Cambio de Juegos ---
-        if (startGameAsteroidsButton) {
-            startGameAsteroidsButton.addEventListener('click', () => {
-                console.log("Asteroids button clicked!"); // Debug log
-                hideMainMenu();
-                hideAllGames();
-                if (asteroidGameContainer) asteroidGameContainer.classList.remove('hidden');
-                resetGameAsteroids();
-                setupAudioAsteroids();
-            });
-        } else {
-            console.warn("Element with ID 'startGameAsteroidsButton' not found.");
-        }
+        // Function to attach all main menu button listeners
+        const attachMainMenuButtonListeners = () => {
+            if (startGameAsteroidsButton) {
+                startGameAsteroidsButton.addEventListener('click', () => {
+                    console.log("Asteroids button clicked!");
+                    hideMainMenu();
+                    hideAllGames();
+                    if (asteroidGameContainer) asteroidGameContainer.classList.remove('hidden');
+                    resetGameAsteroids();
+                    setupAudioAsteroids();
+                });
+                console.log("Event listener attached to: startGameAsteroidsButton");
+            } else {
+                console.error("Error: Button with ID 'startGameAsteroidsButton' not found.");
+                if (jsReadyIndicator) {
+                    jsReadyIndicator.textContent = `Error: Botón 'startGameAsteroidsButton' no encontrado!`;
+                    jsReadyIndicator.style.backgroundColor = 'red';
+                }
+            }
 
-        if (startGameMemoramaButton) {
-            startGameMemoramaButton.addEventListener('click', () => {
-                console.log("Memorama button clicked!"); // Debug log
-                hideMainMenu();
-                hideAllGames();
-                if (memoramaGameContainer) memoramaGameContainer.classList.remove('hidden');
-                resetGameMemorama();
-                setupAudioMemorama();
-            });
-        } else {
-            console.warn("Element with ID 'startGameMemoramaButton' not found.");
-        }
+            if (startGameMemoramaButton) {
+                startGameMemoramaButton.addEventListener('click', () => {
+                    console.log("Memorama button clicked!");
+                    hideMainMenu();
+                    hideAllGames();
+                    if (memoramaGameContainer) memoramaGameContainer.classList.remove('hidden');
+                    resetGameMemorama();
+                    setupAudioMemorama();
+                });
+                console.log("Event listener attached to: startGameMemoramaButton");
+            } else {
+                console.error("Error: Button with ID 'startGameMemoramaButton' not found.");
+                if (jsReadyIndicator) {
+                    jsReadyIndicator.textContent = `Error: Botón 'startGameMemoramaButton' no encontrado!`;
+                    jsReadyIndicator.style.backgroundColor = 'red';
+                }
+            }
 
-        if (startGameSpellingButton) {
-            startGameSpellingButton.addEventListener('click', async () => {
-                console.log("Spelling button clicked!"); // Debug log
-                hideMainMenu();
-                hideAllGames();
-                if (spellingGameContainer) spellingGameContainer.classList.remove('hidden');
-                setupAudioSpelling();
-                updateSpellingResultsTable();
-            });
-        } else {
-            console.warn("Element with ID 'startGameSpellingButton' not found.");
-        }
+            if (startGameSpellingButton) {
+                startGameSpellingButton.addEventListener('click', async () => {
+                    console.log("Spelling button clicked!");
+                    hideMainMenu();
+                    hideAllGames();
+                    if (spellingGameContainer) spellingGameContainer.classList.remove('hidden');
+                    setupAudioSpelling();
+                    updateSpellingResultsTable();
+                });
+                console.log("Event listener attached to: startGameSpellingButton");
+            } else {
+                console.error("Error: Button with ID 'startGameSpellingButton' not found.");
+                if (jsReadyIndicator) {
+                    jsReadyIndicator.textContent = `Error: Botón 'startGameSpellingButton' no encontrado!`;
+                    jsReadyIndicator.style.backgroundColor = 'red';
+                }
+            }
 
-        if (startGameQuickMathButton) {
-            startGameQuickMathButton.addEventListener('click', async () => {
-                console.log("Quick Math button clicked!"); // Debug log
-                hideMainMenu();
-                hideAllGames();
-                if (quickMathGameContainer) quickMathGameContainer.classList.remove('hidden');
-                setupAudioQuickMath();
-                updateQuickMathResultsTable();
-            });
-        } else {
-            console.warn("Element with ID 'startGameQuickMathButton' not found.");
-        }
+            if (startGameQuickMathButton) {
+                startGameQuickMathButton.addEventListener('click', async () => {
+                    console.log("Quick Math button clicked!");
+                    hideMainMenu();
+                    hideAllGames();
+                    if (quickMathGameContainer) quickMathGameContainer.classList.remove('hidden');
+                    setupAudioQuickMath();
+                    updateQuickMathResultsTable();
+                });
+                console.log("Event listener attached to: startGameQuickMathButton");
+            } else {
+                console.error("Error: Button with ID 'startGameQuickMathButton' not found.");
+                if (jsReadyIndicator) {
+                    jsReadyIndicator.textContent = `Error: Botón 'startGameQuickMathButton' no encontrado!`;
+                    jsReadyIndicator.style.backgroundColor = 'red';
+                }
+            }
 
+            if (globalMuteButton) {
+                globalMuteButton.addEventListener('click', toggleGlobalMute);
+                console.log("Event listener attached to: globalMuteButton");
+            } else {
+                console.error("Error: Button with ID 'globalMuteButton' not found.");
+                if (jsReadyIndicator) {
+                    jsReadyIndicator.textContent = `Error: Botón 'globalMuteButton' no encontrado!`;
+                    jsReadyIndicator.style.backgroundColor = 'red';
+                }
+            }
+
+            if (testJsButton) {
+                testJsButton.addEventListener('click', () => {
+                    console.log('Botón de prueba de JS clicado!');
+                    showModal('Test JS', '¡El botón de prueba de JS funciona!', 'OK');
+                });
+                console.log("Event listener attached to: testJsButton");
+            } else {
+                console.error("Error: Button with ID 'testJsButton' not found.");
+                if (jsReadyIndicator) {
+                    jsReadyIndicator.textContent = `Error: Botón 'testJsButton' no encontrado!`;
+                    jsReadyIndicator.style.backgroundColor = 'red';
+                }
+            }
+
+            // Game-specific back to menu buttons
+            if (backToMenuButtonAsteroids) {
+                backToMenuButtonAsteroids.addEventListener('click', showMainMenu);
+                console.log("Event listener attached to: backToMenuButtonAsteroids");
+            } else {
+                console.warn("Element with ID 'backToMenuButtonAsteroids' not found.");
+            }
+            if (startScreenButtonAsteroids) {
+                startScreenButtonAsteroids.addEventListener('click', startGameAsteroidsLogic);
+                console.log("Event listener attached to: startScreenButtonAsteroids");
+            } else {
+                console.warn("Element with ID 'startScreenButtonAsteroids' not found.");
+            }
+
+            if (backToMenuButtonMemorama) {
+                backToMenuButtonMemorama.addEventListener('click', showMainMenu);
+                console.log("Event listener attached to: backToMenuButtonMemorama");
+            } else {
+                console.warn("Element with ID 'backToMenuButtonMemorama' not found.");
+            }
+            if (startScreenButtonMemorama) {
+                startScreenButtonMemorama.addEventListener('click', startGameMemoramaLogic);
+                console.log("Event listener attached to: startScreenButtonMemorama");
+            } else {
+                console.warn("Element with ID 'startScreenButtonMemorama' not found.");
+            }
+
+            if (combinedLevelButtonSpelling) {
+                combinedLevelButtonSpelling.addEventListener('click', () => {
+                    currentSpellingMode = 'combinedLevel';
+                    fetchWordsFromGemini('combinedLevel');
+                });
+                console.log("Event listener attached to: combinedLevelButtonSpelling");
+            } else {
+                console.warn("Element with ID 'combinedLevelButtonSpelling' not found.");
+            }
+            if (freeModeButtonSpelling) {
+                freeModeButtonSpelling.addEventListener('click', () => {
+                    currentSpellingMode = 'freeMode';
+                    fetchWordsFromGemini('freeMode');
+                });
+                console.log("Event listener attached to: freeModeButtonSpelling");
+            } else {
+                console.warn("Element with ID 'freeModeButtonSpelling' not found.");
+            }
+            if (correctButton) {
+                correctButton.addEventListener('click', () => checkAnswer(true));
+                console.log("Event listener attached to: correctButton");
+            } else {
+                console.warn("Element with ID 'correctButton' not found.");
+            }
+            if (incorrectButton) {
+                incorrectButton.addEventListener('click', () => checkAnswer(false));
+                console.log("Event listener attached to: incorrectButton");
+            } else {
+                console.warn("Element with ID 'incorrectButton' not found.");
+            }
+            if (backToMenuButtonSpelling) {
+                backToMenuButtonSpelling.addEventListener('click', showMainMenu);
+                console.log("Event listener attached to: backToMenuButtonSpelling");
+            } else {
+                console.warn("Element with ID 'backToMenuButtonSpelling' not found.");
+            }
+            if (backToMenuButtonSpellingStartScreen) {
+                backToMenuButtonSpellingStartScreen.addEventListener('click', showMainMenu);
+                console.log("Event listener attached to: backToMenuButtonSpellingStartScreen");
+            } else {
+                console.warn("Element with ID 'backToMenuButtonSpellingStartScreen' not found.");
+            }
+
+            if (combinedLevelButtonQuickMath) {
+                combinedLevelButtonQuickMath.addEventListener('click', () => {
+                    currentQuickMathMode = 'combinedLevel';
+                    startGameQuickMathLogic();
+                });
+                console.log("Event listener attached to: combinedLevelButtonQuickMath");
+            } else {
+                console.warn("Element with ID 'combinedLevelButtonQuickMath' not found.");
+            }
+            if (freeModeButtonQuickMath) {
+                freeModeButtonQuickMath.addEventListener('click', () => {
+                    currentQuickMathMode = 'freeMode';
+                    startGameQuickMathLogic();
+                });
+                console.log("Event listener attached to: freeModeButtonQuickMath");
+            } else {
+                console.warn("Element with ID 'freeModeButtonQuickMath' not found.");
+            }
+            if (submitAnswerButton) {
+                submitAnswerButton.addEventListener('click', checkAnswerQuickMath);
+                console.log("Event listener attached to: submitAnswerButton");
+            } else {
+                console.warn("Element with ID 'submitAnswerButton' not found.");
+            }
+            if (answerInput) {
+                answerInput.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter') {
+                        checkAnswerQuickMath();
+                    }
+                });
+                console.log("Event listener attached to: answerInput (keydown)");
+            } else {
+                console.warn("Element with ID 'answerInput' not found for keydown listener.");
+            }
+            if (backToMenuButtonQuickMath) {
+                backToMenuButtonQuickMath.addEventListener('click', showMainMenu);
+                console.log("Event listener attached to: backToMenuButtonQuickMath");
+            } else {
+                console.warn("Element with ID 'backToMenuButtonQuickMath' not found.");
+            }
+            if (backToMenuButtonQuickMathStartScreen) {
+                backToMenuButtonQuickMathStartScreen.addEventListener('click', showMainMenu);
+                console.log("Event listener attached to: backToMenuButtonQuickMathStartScreen");
+            } else {
+                console.warn("Element with ID 'backToMenuButtonQuickMathStartScreen' not found.");
+            }
+        };
 
         // Configuración inicial al cargar la página principal
         document.addEventListener('DOMContentLoaded', () => {
             console.log("DOM Content Loaded. Initializing app...");
+
+            // Update JS Ready Indicator
+            if (jsReadyIndicator) {
+                jsReadyIndicator.textContent = 'JS Listo!';
+                jsReadyIndicator.style.backgroundColor = '#4CAF50'; // Green
+            }
 
             setupMainMenuAudio();
             setupAudioAsteroids();
@@ -3136,6 +3212,9 @@
             setupAudioSpelling();
             setupAudioQuickMath();
 
+            attachMainMenuButtonListeners(); // Attach all main menu button listeners here
+
+            // Handle first user interaction to start audio context
             document.body.addEventListener('click', function firstInteractionHandler() {
                 if (Tone.context.state !== 'running') {
                     Tone.start().then(() => {
@@ -3148,9 +3227,10 @@
                 document.body.removeEventListener('click', firstInteractionHandler);
             }, { once: true });
 
-            showMainMenu();
+            showMainMenu(); // Show main menu after everything is set up
             hideAllGames(); // Ensure all games are hidden initially
         });
     </script>
 </body>
 </html>
+�
