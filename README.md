@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -9,69 +8,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <!-- Tone.js CDN para la generación de audio (necesario para ambos minijuegos) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Global Firebase variables (will be populated by Canvas environment)
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        let app;
-        let db;
-        let auth;
-        let currentUserId = null;
-
-        // Initialize Firebase and Auth
-        if (Object.keys(firebaseConfig).length > 0) {
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    currentUserId = user.uid;
-                    const userIdDisplayElement = document.getElementById('userIdDisplay');
-                    if (userIdDisplayElement) {
-                        userIdDisplayElement.textContent = `Tu ID: ${currentUserId}`;
-                    } else {
-                        console.warn("Element with ID 'userIdDisplay' not found.");
-                    }
-                    console.log("User signed in:", currentUserId);
-                } else {
-                    console.log("No user signed in. Attempting anonymous sign-in...");
-                    try {
-                        if (initialAuthToken) {
-                            await signInWithCustomToken(auth, initialAuthToken);
-                        } else {
-                            await signInAnonymously(auth);
-                        }
-                    } catch (error) {
-                        console.error("Error during Firebase authentication:", error);
-                    }
-                }
-            });
-        } else {
-            console.warn("Firebase config not found. Leaderboard functionality will be disabled.");
-            const userIdDisplayElement = document.getElementById('userIdDisplay');
-            if (userIdDisplayElement) {
-                userIdDisplayElement.textContent = 'Firebase no configurado.';
-            } else {
-                console.warn("Element with ID 'userIdDisplay' not found.");
-            }
-        }
-
-        // Expose to global scope for use in the main script
-        window.firebase = {
-            app, db, auth, currentUserId,
-            getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged,
-            getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, orderBy, limit, getDocs,
-            appId // Expose appId for collection paths
-        };
-    </script>
     <style>
         /* Regla global para ocultar elementos */
         .hidden {
@@ -754,7 +690,7 @@
                 </div>
                 <div id="startScreenQuickMath">
                     <h2 id="startScreenTitleQuickMath" class="text-4xl font-bold mb-6 text-white text-center">Sumas Rápidas</h2>
-                    <p id="startScreenMessageQuickMath" class="text-lg text-gray-300 mb-8 text-center px-4">Resuelve problemas de suma lo más rápido posible. ¡Agiliza tu mente y mejora tu cálculo mental!</p>
+                    <p id="startScreenMessageQuickMath" class="text-lg text-gray-300 mb-8 text-center px-4">Resuelve problemas de suma lo más rápido posible. ¡Agiliza tu mente y mejora tu cálculo mental! ⚡</p>
                     <div class="flex flex-col sm:flex-row gap-4 sm:gap-6 mb-6">
                         <button id="combinedLevelButtonQuickMath" class="game-button text-xl px-6 py-3">Iniciar Nivel Combinado (5 vidas)</button>
                         <button id="freeModeButtonQuickMath" class="game-button text-xl px-6 py-3">Modo Libre (60s)</button>
@@ -823,33 +759,70 @@
     <!-- New: Visual JS Ready Indicator -->
     <div id="jsReadyIndicator" style="position: fixed; bottom: 10px; right: 10px; background-color: #333; color: #fff; padding: 5px 10px; border-radius: 5px; font-size: 12px; z-index: 9999;">Cargando JS...</div>
 
+    <!-- Firebase SDKs and main script moved to end of body -->
     <script type="module">
-        // Import Firebase functions from the global 'firebase' object exposed by the script above
-        const { db, auth, appId, onAuthStateChanged, signInAnonymously, signInWithCustomToken,
-                getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, orderBy, limit, getDocs } = window.firebase;
+        console.log("Script principal comenzando a parsearse (desde el final del body)."); // Mensaje de depuración temprano
 
-        let currentUserId = null; // Will be set by onAuthStateChanged listener
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUserId = user.uid;
-                const userIdDisplayElement = document.getElementById('userIdDisplay');
-                if (userIdDisplayElement) {
-                    userIdDisplayElement.textContent = `Tu ID: ${currentUserId}`;
+        // Global Firebase variables (will be populated by Canvas environment)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let app;
+        let db;
+        let auth;
+        let currentUserId = null;
+
+        // Initialize Firebase and Auth
+        if (Object.keys(firebaseConfig).length > 0) {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    currentUserId = user.uid;
+                    const userIdDisplayElement = document.getElementById('userIdDisplay');
+                    if (userIdDisplayElement) {
+                        userIdDisplayElement.textContent = `Tu ID: ${currentUserId}`;
+                    } else {
+                        console.warn("Element with ID 'userIdDisplay' not found.");
+                    }
+                    console.log("User signed in:", currentUserId);
                 } else {
-                    console.warn("Element with ID 'userIdDisplay' not found on auth state change.");
+                    console.log("No user signed in. Attempting anonymous sign-in...");
+                    try {
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (error) {
+                        console.error("Error during Firebase authentication:", error);
+                    }
                 }
-                console.log("User signed in:", currentUserId);
+            });
+        } else {
+            console.warn("Firebase config not found. Leaderboard functionality will be disabled.");
+            const userIdDisplayElement = document.getElementById('userIdDisplay');
+            if (userIdDisplayElement) {
+                userIdDisplayElement.textContent = 'Firebase no configurado.';
             } else {
-                currentUserId = null;
-                const userIdDisplayElement = document.getElementById('userIdDisplay');
-                if (userIdDisplayElement) {
-                    userIdDisplayElement.textContent = 'ID no disponible (error de autenticación).';
-                } else {
-                    console.warn("Element with ID 'userIdDisplay' not found on auth state change (user null).");
-                }
+                console.warn("Element with ID 'userIdDisplay' not found.");
             }
-        });
+        }
+
+        // Expose to global scope for use in the main script
+        window.firebase = {
+            app, db, auth, currentUserId,
+            getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged,
+            getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, orderBy, limit, getDocs,
+            appId // Expose appId for collection paths
+        };
 
         // --- Variables de control de audio globales ---
         let isMasterMuted = false;
@@ -1874,7 +1847,7 @@
         let lowTimeSequenceMemorama;
         let isLowTimeMusicPlaying = false;
 
-        const EMOJIS = ['🍎', '🍌', '🍒', '🍇', '🍋', '🥝', '🍓', '🍍', '🍉', '🍊', '�', '🍑'];
+        const EMOJIS = ['🍎', '🍌', '🍒', '🍇', '🍋', '🥝', '🍓', '🍍', '🍉', '🍊', '🍐', '🍑'];
 
         function setupAudioMemorama() {
             if (!memoramaSynth) {
@@ -2969,9 +2942,9 @@
             } else if (quickMathResultsTableGlobalBody) {
                 const row = quickMathResultsTableGlobalBody.insertRow();
                 const cell = row.insertCell();
-                cell.colSpan = 3;
-                cell.textContent = 'Firebase no configurado para ranking global.';
-                cell.classList.add('text-center', 'text-gray-400');
+                    cell.colSpan = 3;
+                    cell.textContent = 'Firebase no configurado para ranking global.';
+                    cell.classList.add('text-center', 'text-gray-400');
             }
 
             if (quickMathResultsContainer) quickMathResultsContainer.classList.remove('hidden');
@@ -3198,39 +3171,51 @@
 
         // Configuración inicial al cargar la página principal
         document.addEventListener('DOMContentLoaded', () => {
-            console.log("DOM Content Loaded. Initializing app...");
+            try {
+                // Mensaje de depuración temprano para confirmar que el DOMContentLoaded se dispara
+                console.log("DOM Content Loaded. Initializing app...");
 
-            // Update JS Ready Indicator
-            if (jsReadyIndicator) {
-                jsReadyIndicator.textContent = 'JS Listo!';
-                jsReadyIndicator.style.backgroundColor = '#4CAF50'; // Green
-            }
-
-            setupMainMenuAudio();
-            setupAudioAsteroids();
-            setupAudioMemorama();
-            setupAudioSpelling();
-            setupAudioQuickMath();
-
-            attachMainMenuButtonListeners(); // Attach all main menu button listeners here
-
-            // Handle first user interaction to start audio context
-            document.body.addEventListener('click', function firstInteractionHandler() {
-                if (Tone.context.state !== 'running') {
-                    Tone.start().then(() => {
-                        console.log("Tone.js audio context started.");
-                        Tone.Transport.start();
-                        console.log("Tone.js Transport started.");
-                        startMainMenuMusic();
-                    }).catch(e => console.error("Error starting Tone.js audio context:", e));
+                // Actualizar el indicador de JS Listo
+                if (jsReadyIndicator) {
+                    jsReadyIndicator.textContent = 'JS Listo (DOM Cargado)!';
+                    jsReadyIndicator.style.backgroundColor = '#4CAF50'; // Verde
+                    console.log("Indicador JS Ready actualizado.");
+                } else {
+                    console.error("Elemento del indicador JS Ready no encontrado!");
                 }
-                document.body.removeEventListener('click', firstInteractionHandler);
-            }, { once: true });
 
-            showMainMenu(); // Show main menu after everything is set up
-            hideAllGames(); // Ensure all games are hidden initially
+                setupMainMenuAudio();
+                setupAudioAsteroids();
+                setupAudioMemorama();
+                setupAudioSpelling();
+                setupAudioQuickMath();
+
+                attachMainMenuButtonListeners(); // Adjuntar todos los listeners de botones del menú principal aquí
+
+                // Manejar la primera interacción del usuario para iniciar el contexto de audio
+                document.body.addEventListener('click', function firstInteractionHandler() {
+                    if (Tone.context.state !== 'running') {
+                        Tone.start().then(() => {
+                            console.log("Contexto de audio Tone.js iniciado.");
+                            Tone.Transport.start();
+                            console.log("Transporte Tone.js iniciado.");
+                            startMainMenuMusic();
+                        }).catch(e => console.error("Error al iniciar el contexto de audio Tone.js:", e));
+                    }
+                    document.body.removeEventListener('click', firstInteractionHandler);
+                }, { once: true });
+
+                showMainMenu(); // Mostrar el menú principal después de que todo esté configurado
+                hideAllGames(); // Asegurarse de que todos los juegos estén ocultos inicialmente
+
+            } catch (error) {
+                console.error("Error durante la inicialización de DOMContentLoaded:", error);
+                if (jsReadyIndicator) {
+                    jsReadyIndicator.textContent = `Error JS: ${error.message}`;
+                    jsReadyIndicator.style.backgroundColor = 'red';
+                }
+            }
         });
     </script>
 </body>
 </html>
-�
