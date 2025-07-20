@@ -825,7 +825,6 @@
         const startGameQuickMathButton = document.getElementById('startGameQuickMathButton');
         const gameArea = document.getElementById('gameArea');
         const asteroidGameContainer = document.getElementById('asteroidGame');
-        // CORRECTED LINE: Removed 'document = '
         const memoramaGameContainer = document.getElementById('memoramaGame');
         const spellingGameContainer = document.getElementById('spellingGame');
         const quickMathGameContainer = document.getElementById('quickMathGame');
@@ -1109,6 +1108,7 @@
         let keysAsteroids = {};
         let confetti = [];
         let awaitingMenuTapAsteroids = false;
+        let lastAsteroidSpawnTime = 0; // Declare lastAsteroidSpawnTime here
 
         const PLAYER_SIZE_ASTEROIDS = 24;
         let playerAsteroids;
@@ -1135,6 +1135,37 @@
 
         let backgroundSynthAsteroids;
         let backgroundSequenceAsteroids;
+
+        // Keyboard input handling for Asteroids game
+        document.addEventListener('keydown', (e) => {
+            if (gameRunningAsteroids) {
+                keysAsteroids[e.key] = true;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (gameRunningAsteroids) {
+                keysAsteroids[e.key] = false;
+            }
+        });
+
+        // Function to resize the canvas dynamically
+        function resizeCanvasAsteroids() {
+            const containerWidth = canvasAsteroids.parentElement.offsetWidth;
+            // Maintain aspect ratio (e.g., 640x320, so width is 2x height)
+            canvasAsteroids.width = containerWidth;
+            canvasAsteroids.height = containerWidth / 2;
+
+            // Re-position player after resize
+            if (playerAsteroids) {
+                playerAsteroids.x = canvasAsteroids.width / 2 - PLAYER_SIZE_ASTEROIDS / 2;
+                playerAsteroids.y = canvasAsteroids.height - PLAYER_SIZE_ASTEROIDS * 2;
+            }
+        }
+
+        // Add event listener for window resize
+        window.addEventListener('resize', resizeCanvasAsteroids);
+
 
         function setupAudioAsteroids() {
             // Only initialize if not already initialized
@@ -1440,7 +1471,7 @@
             currentMinAsteroidSize = BASE_MIN_ASTEROID_SIZE;
             currentMaxAsteroidSize = BASE_MAX_ASTEROID_SIZE;
 
-            lastAsteroidSpawnTime = performance.now();
+            lastAsteroidSpawnTime = performance.now(); // Initialize here
             lastHologramSpawnTime = performance.now();
 
             stars = [];
