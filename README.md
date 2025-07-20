@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -270,6 +271,11 @@
             background-color: #4a5568;
             box-shadow: 2px 2px 0px #4a5568;
             transform: translate(2px, 2px);
+        }
+        /* Debug display for keys (new) */
+        #keyDebugDisplay {
+            @apply text-sm text-gray-400 mt-2 text-center;
+            min-height: 20px; /* Ensure space even when empty */
         }
 
         /* --- Estilos Específicos para Memorama --- */
@@ -562,6 +568,10 @@
         #userIdDisplay {
             @apply text-xs text-gray-400 mt-4 text-center;
         }
+        /* Version display at the bottom */
+        #versionDisplay {
+            @apply text-xs text-gray-500 mt-4 mb-2;
+        }
     </style>
 </head>
 <body>
@@ -621,6 +631,8 @@
                         <button id="leftButtonAsteroids" class="touch-button">◀</button>
                         <button id="rightButtonAsteroids" class="touch-button">▶</button>
                     </div>
+                    <!-- Debug display for keys (new) -->
+                    <div id="keyDebugDisplay"></div>
                     <button id="backToMenuButtonAsteroids" class="game-button mt-10">Volver al Menú Principal</button>
                 </div>
                 <div id="startScreenAsteroids">
@@ -790,6 +802,9 @@
     <!-- User ID Display -->
     <div id="userIdDisplay" class="text-xs text-gray-400 mt-4 text-center">Cargando ID de usuario...</div>
 
+    <!-- Version Display (New) -->
+    <div id="versionDisplay" class="text-xs text-gray-500 mt-4 mb-2">v1.0.0</div>
+
     <script type="module">
         // Import Firebase functions from the global 'firebase' object exposed by the script above
         const { db, auth, appId, onAuthStateChanged, signInAnonymously, signInWithCustomToken,
@@ -920,7 +935,7 @@
             quickMathGameDescription.style.display = 'none';
             startGameQuickMathButton.style.display = 'none';
             globalMuteButton.style.display = 'none';
-            gameArea.style.display = 'flex';
+            gameArea.style.display = 'flex'; // Make gameArea visible
             stopMainMenuMusic();
         }
 
@@ -935,8 +950,9 @@
             quickMathGameDescription.style.display = 'block';
             startGameQuickMathButton.style.display = 'block';
             globalMuteButton.style.display = 'block';
-            gameArea.style.display = 'none';
-            
+            gameArea.style.display = 'none'; // Hide gameArea
+
+            // Ensure all game containers are hidden when returning to main menu
             stopGameAsteroidsInternal();
             asteroidGameContainer.classList.add('hidden');
             stopGameMemoramaInternal();
@@ -958,6 +974,9 @@
             stopBackgroundMusicAsteroids();
             gameUIAsteroids.style.display = 'none';
             startScreenAsteroids.classList.remove('hidden');
+            // Clear keys state on game stop
+            keysAsteroids = {};
+            updateKeyDebugDisplay();
         }
 
         // Internal stop function for Memorama
@@ -1009,7 +1028,7 @@
         }
 
 
-        // Function to hide all game containers
+        // Function to hide all game containers (used when switching games or returning to main menu)
         function hideAllGames() {
             asteroidGameContainer.classList.add('hidden');
             memoramaGameContainer.classList.add('hidden');
@@ -1089,6 +1108,7 @@
 
         const timeDisplayAsteroids = document.getElementById('timeDisplayAsteroids');
         const livesDisplayAsteroids = document.getElementById('livesDisplayAsteroids');
+        const keyDebugDisplay = document.getElementById('keyDebugDisplay'); // New debug element
 
         const startScreenAsteroids = document.getElementById('startScreenAsteroids');
         const startScreenButtonAsteroids = document.getElementById('startScreenButtonAsteroids');
@@ -1105,10 +1125,10 @@
         let asteroids = [];
         let holograms = [];
         let stars = [];
-        let keysAsteroids = {};
+        let keysAsteroids = {}; // Object to track pressed keys
         let confetti = [];
         let awaitingMenuTapAsteroids = false;
-        let lastAsteroidSpawnTime = 0; // Declare lastAsteroidSpawnTime here
+        let lastAsteroidSpawnTime = 0;
 
         const PLAYER_SIZE_ASTEROIDS = 24;
         let playerAsteroids;
@@ -1140,14 +1160,21 @@
         document.addEventListener('keydown', (e) => {
             if (gameRunningAsteroids) {
                 keysAsteroids[e.key] = true;
+                updateKeyDebugDisplay(); // Update debug display
             }
         });
 
         document.addEventListener('keyup', (e) => {
             if (gameRunningAsteroids) {
                 keysAsteroids[e.key] = false;
+                updateKeyDebugDisplay(); // Update debug display
             }
         });
+
+        function updateKeyDebugDisplay() {
+            const activeKeys = Object.keys(keysAsteroids).filter(key => keysAsteroids[key]);
+            keyDebugDisplay.textContent = `Teclas: ${activeKeys.join(', ')}`;
+        }
 
         // Function to resize the canvas dynamically
         function resizeCanvasAsteroids() {
@@ -1453,6 +1480,8 @@
             stars = [];
             confetti = [];
             awaitingMenuTapAsteroids = false;
+            keysAsteroids = {}; // Reset keys state
+            updateKeyDebugDisplay(); // Update debug display
 
             startScreenTitleAsteroids.textContent = "Esquiva los Asteroides";
             startScreenMessageAsteroids.textContent = "Sobrevive 60 segundos a una lluvia de asteroides. Este minijuego te ayudará a mejorar tus reflejos y tu tiempo de reacción. 🚀✨";
@@ -1754,7 +1783,7 @@
         let lowTimeSequenceMemorama;
         let isLowTimeMusicPlaying = false;
 
-        const EMOJIS = ['🍎', '🍌', '🍒', '🍇', '🍋', '🥝', '🍓', '🍍', '🍉', '🍊', '🍐', '🍑'];
+        const EMOJIS = ['🍎', '🍌', '🍒', '🍇', '🍋', '🥝', '�', '🍍', '🍉', '🍊', '🍐', '🍑'];
 
         function setupAudioMemorama() {
             if (!memoramaSynth) {
@@ -2856,6 +2885,7 @@
 
         // --- Lógica de Inicio y Cambio de Juegos ---
         startGameAsteroidsButton.addEventListener('click', () => {
+            console.log("Asteroids button clicked!"); // Debug log
             hideMainMenu();
             hideAllGames();
             asteroidGameContainer.classList.remove('hidden');
@@ -2864,6 +2894,7 @@
         });
 
         startGameMemoramaButton.addEventListener('click', () => {
+            console.log("Memorama button clicked!"); // Debug log
             hideMainMenu();
             hideAllGames();
             memoramaGameContainer.classList.remove('hidden');
@@ -2872,6 +2903,7 @@
         });
 
         startGameSpellingButton.addEventListener('click', async () => {
+            console.log("Spelling button clicked!"); // Debug log
             hideMainMenu();
             hideAllGames();
             spellingGameContainer.classList.remove('hidden');
@@ -2880,6 +2912,7 @@
         });
 
         startGameQuickMathButton.addEventListener('click', async () => {
+            console.log("Quick Math button clicked!"); // Debug log
             hideMainMenu();
             hideAllGames();
             quickMathGameContainer.classList.remove('hidden');
@@ -2908,8 +2941,9 @@
             }, { once: true });
 
             showMainMenu();
-            hideAllGames();
+            hideAllGames(); // Ensure all games are hidden initially
         };
     </script>
 </body>
 </html>
+�
