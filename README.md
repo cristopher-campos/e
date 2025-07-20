@@ -33,7 +33,12 @@
             onAuthStateChanged(auth, async (user) => {
                 if (user) {
                     currentUserId = user.uid;
-                    document.getElementById('userIdDisplay').textContent = `Tu ID: ${currentUserId}`;
+                    const userIdDisplayElement = document.getElementById('userIdDisplay');
+                    if (userIdDisplayElement) {
+                        userIdDisplayElement.textContent = `Tu ID: ${currentUserId}`;
+                    } else {
+                        console.warn("Element with ID 'userIdDisplay' not found.");
+                    }
                     console.log("User signed in:", currentUserId);
                 } else {
                     console.log("No user signed in. Attempting anonymous sign-in...");
@@ -50,7 +55,12 @@
             });
         } else {
             console.warn("Firebase config not found. Leaderboard functionality will be disabled.");
-            document.getElementById('userIdDisplay').textContent = 'Firebase no configurado.';
+            const userIdDisplayElement = document.getElementById('userIdDisplay');
+            if (userIdDisplayElement) {
+                userIdDisplayElement.textContent = 'Firebase no configurado.';
+            } else {
+                console.warn("Element with ID 'userIdDisplay' not found.");
+            }
         }
 
         // Expose to global scope for use in the main script
@@ -577,6 +587,11 @@
     <div class="main-app-container">
         <h1 id="mainTitle" class="text-4xl font-bold mb-8 text-white text-center">🎮 Mejora con Juegos 🚀</h1>
 
+        <!-- Botón de prueba de JavaScript (NUEVO) -->
+        <button id="testJsButton" class="app-button mb-8" onclick="console.log('Botón de prueba de JS clicado!'); alert('Botón de prueba de JS clicado!');">
+            Test JS Button
+        </button>
+
         <!-- Botón de silencio global -->
         <button id="globalMuteButton" class="app-button mb-8">Silenciar Todo</button>
 
@@ -814,11 +829,21 @@
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUserId = user.uid;
-                document.getElementById('userIdDisplay').textContent = `Tu ID: ${currentUserId}`;
+                const userIdDisplayElement = document.getElementById('userIdDisplay');
+                if (userIdDisplayElement) {
+                    userIdDisplayElement.textContent = `Tu ID: ${currentUserId}`;
+                } else {
+                    console.warn("Element with ID 'userIdDisplay' not found on auth state change.");
+                }
                 console.log("User ID set:", currentUserId);
             } else {
                 currentUserId = null;
-                document.getElementById('userIdDisplay').textContent = 'ID no disponible (error de autenticación).';
+                const userIdDisplayElement = document.getElementById('userIdDisplay');
+                if (userIdDisplayElement) {
+                    userIdDisplayElement.textContent = 'ID no disponible (error de autenticación).';
+                } else {
+                    console.warn("Element with ID 'userIdDisplay' not found on auth state change (user null).");
+                }
             }
         });
 
@@ -858,6 +883,12 @@
         let currentScoreToSubmit = { game: '', score: 0, time: 0 }; // To hold score data for submission
 
         function showModal(title, message, buttonText = "Cerrar", callback = null) {
+            if (!modalTitle || !modalMessage || !modalButton || !gameModal) {
+                console.error("Modal elements not found for showModal.");
+                alert(`Modal Error: ${title} - ${message}`); // Fallback to alert if modal elements are missing
+                if (callback) callback();
+                return;
+            }
             modalTitle.textContent = title;
             modalMessage.textContent = message;
             modalButton.textContent = buttonText;
@@ -869,6 +900,11 @@
         }
 
         function showLeaderboardSubmissionModal(game, score, time) {
+            if (!leaderboardSubmissionModal || !playerNameInput || !submitLeaderboardScoreButton || !cancelLeaderboardSubmissionButton) {
+                console.error("Leaderboard submission modal elements not found.");
+                showModal('Error', 'No se puede mostrar el modal de puntuación alta.', 'Cerrar', showMainMenu);
+                return;
+            }
             currentScoreToSubmit = { game, score, time };
             playerNameInput.value = ''; // Clear previous input
             leaderboardSubmissionModal.classList.remove('hidden');
@@ -876,90 +912,107 @@
         }
 
         function hideLeaderboardSubmissionModal() {
-            leaderboardSubmissionModal.classList.add('hidden');
+            if (leaderboardSubmissionModal) {
+                leaderboardSubmissionModal.classList.add('hidden');
+            } else {
+                console.warn("Leaderboard submission modal element not found for hiding.");
+            }
         }
 
-        submitLeaderboardScoreButton.addEventListener('click', async () => {
-            const playerName = playerNameInput.value.trim();
-            if (playerName.length < 1) {
-                alert("Por favor, ingresa un nombre."); // Use alert for simple validation, replace with custom message if needed
-                return;
-            }
-            if (!db || !currentUserId) {
-                showModal('Error', 'Firebase no está inicializado o no hay usuario autenticado. No se puede guardar la puntuación.', 'Cerrar', showMainMenu);
+        if (submitLeaderboardScoreButton) {
+            submitLeaderboardScoreButton.addEventListener('click', async () => {
+                const playerName = playerNameInput.value.trim();
+                if (playerName.length < 1) {
+                    showModal("Nombre Requerido", "Por favor, ingresa un nombre para el ranking.", "Entendido");
+                    return;
+                }
+                if (!db || !currentUserId) {
+                    showModal('Error', 'Firebase no está inicializado o no hay usuario autenticado. No se puede guardar la puntuación.', 'Cerrar', showMainMenu);
+                    hideLeaderboardSubmissionModal();
+                    return;
+                }
+
+                const scoreData = {
+                    name: playerName,
+                    score: currentScoreToSubmit.score,
+                    time: currentScoreToSubmit.time,
+                    timestamp: Date.now(),
+                    userId: currentUserId // Store user ID for potential future features
+                };
+
+                let collectionPath;
+                if (currentScoreToSubmit.game === 'spellingFreeMode') {
+                    collectionPath = `artifacts/${appId}/public/data/spellingFreeModeLeaderboard`;
+                } else if (currentScoreToSubmit.game === 'quickMathFreeMode') {
+                    collectionPath = `artifacts/${appId}/public/data/quickMathFreeModeLeaderboard`;
+                } else {
+                    console.error("Unknown game mode for leaderboard submission:", currentScoreToSubmit.game);
+                    showModal('Error', 'Modo de juego desconocido para el ranking.', 'Cerrar', showMainMenu);
+                    hideLeaderboardSubmissionModal();
+                    return;
+                }
+
+                try {
+                    await addDoc(collection(db, collectionPath), scoreData);
+                    hideLeaderboardSubmissionModal();
+                    showModal('¡Puntuación Publicada!', `Tu puntuación ha sido publicada como ${playerName}.`, 'Cerrar', showMainMenu);
+                } catch (e) {
+                    console.error("Error adding document: ", e);
+                    showModal('Error al Publicar', 'No se pudo publicar tu puntuación. Intenta de nuevo.', 'Cerrar', showMainMenu);
+                    hideLeaderboardSubmissionModal();
+                }
+            });
+        } else {
+            console.warn("Element with ID 'submitLeaderboardScoreButton' not found.");
+        }
+
+        if (cancelLeaderboardSubmissionButton) {
+            cancelLeaderboardSubmissionButton.addEventListener('click', () => {
                 hideLeaderboardSubmissionModal();
-                return;
-            }
-
-            const scoreData = {
-                name: playerName,
-                score: currentScoreToSubmit.score,
-                time: currentScoreToSubmit.time,
-                timestamp: Date.now(),
-                userId: currentUserId // Store user ID for potential future features
-            };
-
-            let collectionPath;
-            if (currentScoreToSubmit.game === 'spellingFreeMode') {
-                collectionPath = `artifacts/${appId}/public/data/spellingFreeModeLeaderboard`;
-            } else if (currentScoreToSubmit.game === 'quickMathFreeMode') {
-                collectionPath = `artifacts/${appId}/public/data/quickMathFreeModeLeaderboard`;
-            }
-
-            try {
-                await addDoc(collection(db, collectionPath), scoreData);
-                hideLeaderboardSubmissionModal();
-                showModal('¡Puntuación Publicada!', `Tu puntuación ha sido publicada como ${playerName}.`, 'Cerrar', showMainMenu);
-            } catch (e) {
-                console.error("Error adding document: ", e);
-                showModal('Error al Publicar', 'No se pudo publicar tu puntuación. Intenta de nuevo.', 'Cerrar', showMainMenu);
-                hideLeaderboardSubmissionModal();
-            }
-        });
-
-        cancelLeaderboardSubmissionButton.addEventListener('click', () => {
-            hideLeaderboardSubmissionModal();
-            showMainMenu(); // Go back to main menu if user cancels submission
-        });
+                showMainMenu(); // Go back to main menu if user cancels submission
+            });
+        } else {
+            console.warn("Element with ID 'cancelLeaderboardSubmissionButton' not found.");
+        }
 
 
         function hideMainMenu() {
-            mainTitle.style.display = 'none';
-            asteroidGameDescription.style.display = 'none';
-            startGameAsteroidsButton.style.display = 'none';
-            memoramaGameDescription.style.display = 'none';
-            startGameMemoramaButton.style.display = 'none';
-            spellingGameDescription.style.display = 'none';
-            startGameSpellingButton.style.display = 'none';
-            quickMathGameDescription.style.display = 'none';
-            startGameQuickMathButton.style.display = 'none';
-            globalMuteButton.style.display = 'none';
-            gameArea.style.display = 'flex'; // Make gameArea visible
+            if (mainTitle) mainTitle.style.display = 'none'; else console.warn("mainTitle not found.");
+            if (asteroidGameDescription) asteroidGameDescription.style.display = 'none'; else console.warn("asteroidGameDescription not found.");
+            if (startGameAsteroidsButton) startGameAsteroidsButton.style.display = 'none'; else console.warn("startGameAsteroidsButton not found.");
+            if (memoramaGameDescription) memoramaGameDescription.style.display = 'none'; else console.warn("memoramaGameDescription not found.");
+            if (startGameMemoramaButton) startGameMemoramaButton.style.display = 'none'; else console.warn("startGameMemoramaButton not found.");
+            if (spellingGameDescription) spellingGameDescription.style.display = 'none'; else console.warn("spellingGameDescription not found.");
+            if (startGameSpellingButton) startGameSpellingButton.style.display = 'none'; else console.warn("startGameSpellingButton not found.");
+            if (quickMathGameDescription) quickMathGameDescription.style.display = 'none'; else console.warn("quickMathGameDescription not found.");
+            if (startGameQuickMathButton) startGameQuickMathButton.style.display = 'none'; else console.warn("startGameQuickMathButton not found.");
+            if (globalMuteButton) globalMuteButton.style.display = 'none'; else console.warn("globalMuteButton not found.");
+            if (gameArea) gameArea.style.display = 'flex'; else console.warn("gameArea not found.");
             stopMainMenuMusic();
         }
 
         function showMainMenu() {
-            mainTitle.style.display = 'block';
-            asteroidGameDescription.style.display = 'block';
-            startGameAsteroidsButton.style.display = 'block';
-            memoramaGameDescription.style.display = 'block';
-            startGameMemoramaButton.style.display = 'block';
-            spellingGameDescription.style.display = 'block';
-            startGameSpellingButton.style.display = 'block';
-            quickMathGameDescription.style.display = 'block';
-            startGameQuickMathButton.style.display = 'block';
-            globalMuteButton.style.display = 'block';
-            gameArea.style.display = 'none'; // Hide gameArea
+            if (mainTitle) mainTitle.style.display = 'block';
+            if (asteroidGameDescription) asteroidGameDescription.style.display = 'block';
+            if (startGameAsteroidsButton) startGameAsteroidsButton.style.display = 'block';
+            if (memoramaGameDescription) memoramaGameDescription.style.display = 'block';
+            if (startGameMemoramaButton) startGameMemoramaButton.style.display = 'block';
+            if (spellingGameDescription) spellingGameDescription.style.display = 'block';
+            if (startGameSpellingButton) startGameSpellingButton.style.display = 'block';
+            if (quickMathGameDescription) quickMathGameDescription.style.display = 'block';
+            if (startGameQuickMathButton) startGameQuickMathButton.style.display = 'block';
+            if (globalMuteButton) globalMuteButton.style.display = 'block';
+            if (gameArea) gameArea.style.display = 'none';
 
             // Ensure all game containers are hidden when returning to main menu
             stopGameAsteroidsInternal();
-            asteroidGameContainer.classList.add('hidden');
+            if (asteroidGameContainer) asteroidGameContainer.classList.add('hidden');
             stopGameMemoramaInternal();
-            memoramaGameContainer.classList.add('hidden');
+            if (memoramaGameContainer) memoramaGameContainer.classList.add('hidden');
             stopGameSpellingInternal();
-            spellingGameContainer.classList.add('hidden');
+            if (spellingGameContainer) spellingGameContainer.classList.add('hidden');
             stopGameQuickMathInternal();
-            quickMathGameContainer.classList.add('hidden');
+            if (quickMathGameContainer) quickMathGameContainer.classList.add('hidden');
 
             if (Tone.context.state === 'running') {
                 startMainMenuMusic();
@@ -971,8 +1024,8 @@
             gameRunningAsteroids = false;
             cancelAnimationFrame(animationFrameIdAsteroids);
             stopBackgroundMusicAsteroids();
-            gameUIAsteroids.style.display = 'none';
-            startScreenAsteroids.classList.remove('hidden');
+            if (gameUIAsteroids) gameUIAsteroids.style.display = 'none';
+            if (startScreenAsteroids) startScreenAsteroids.classList.remove('hidden');
             // Clear keys state on game stop
             keysAsteroids = {};
             updateKeyDebugDisplay();
@@ -984,9 +1037,9 @@
             clearInterval(timerIntervalMemorama);
             stopBackgroundMusicMemorama();
             stopLowTimeMusicMemorama();
-            memoramaGameContainer.classList.remove('low-time-warning');
-            gameUIMemorama.style.display = 'none';
-            startScreenMemorama.classList.remove('hidden');
+            if (memoramaGameContainer) memoramaGameContainer.classList.remove('low-time-warning');
+            if (gameUIMemorama) gameUIMemorama.style.display = 'none';
+            if (startScreenMemorama) startScreenMemorama.classList.remove('hidden');
         }
 
         // Internal stop function for Spelling Game
@@ -994,18 +1047,18 @@
             gameRunningSpelling = false;
             clearInterval(timerIntervalSpelling);
             stopBackgroundMusicSpelling();
-            wordDisplay.textContent = 'Cargando palabra...'; // Reset text
-            gameUISpelling.classList.add('hidden');
-            startScreenSpelling.classList.remove('hidden');
-            spellingLoadingIndicator.classList.add('hidden');
-            spellingLoadingMessage.classList.add('hidden');
+            if (wordDisplay) wordDisplay.textContent = 'Cargando palabra...'; // Reset text
+            if (gameUISpelling) gameUISpelling.classList.add('hidden');
+            if (startScreenSpelling) startScreenSpelling.classList.remove('hidden');
+            if (spellingLoadingIndicator) spellingLoadingIndicator.classList.add('hidden');
+            if (spellingLoadingMessage) spellingLoadingMessage.classList.add('hidden');
             // Re-enable all spelling game start buttons
-            combinedLevelButtonSpelling.disabled = false;
-            freeModeButtonSpelling.disabled = false;
-            backToMenuButtonSpellingStartScreen.disabled = false;
+            if (combinedLevelButtonSpelling) combinedLevelButtonSpelling.disabled = false;
+            if (freeModeButtonSpelling) freeModeButtonSpelling.disabled = false;
+            if (backToMenuButtonSpellingStartScreen) backToMenuButtonSpellingStartScreen.disabled = false;
 
             updateSpellingResultsTable(); // Show latest results on start screen
-            spellingResultsContainer.classList.remove('hidden'); // Show results table
+            if (spellingResultsContainer) spellingResultsContainer.classList.remove('hidden'); // Show results table
         }
 
         // Internal stop function for Quick Math Game (New)
@@ -1013,26 +1066,26 @@
             quickMathGameRunning = false;
             clearInterval(quickMathTimerInterval);
             stopBackgroundMusicQuickMath();
-            problemDisplay.textContent = 'Cargando problema...'; // Reset text
-            answerInput.value = ''; // Clear input
-            gameUIQuickMath.classList.add('hidden');
-            startScreenQuickMath.classList.remove('hidden');
+            if (problemDisplay) problemDisplay.textContent = 'Cargando problema...'; // Reset text
+            if (answerInput) answerInput.value = ''; // Clear input
+            if (gameUIQuickMath) gameUIQuickMath.classList.add('hidden');
+            if (startScreenQuickMath) startScreenQuickMath.classList.remove('hidden');
             // Re-enable all quick math game start buttons
-            combinedLevelButtonQuickMath.disabled = false;
-            freeModeButtonQuickMath.disabled = false;
-            backToMenuButtonQuickMathStartScreen.disabled = false;
+            if (combinedLevelButtonQuickMath) combinedLevelButtonQuickMath.disabled = false;
+            if (freeModeButtonQuickMath) freeModeButtonQuickMath.disabled = false;
+            if (backToMenuButtonQuickMathStartScreen) backToMenuButtonQuickMathStartScreen.disabled = false;
 
             updateQuickMathResultsTable(); // Show latest results on start screen
-            quickMathResultsContainer.classList.remove('hidden'); // Show results table
+            if (quickMathResultsContainer) quickMathResultsContainer.classList.remove('hidden'); // Show results table
         }
 
 
         // Function to hide all game containers (used when switching games or returning to main menu)
         function hideAllGames() {
-            asteroidGameContainer.classList.add('hidden');
-            memoramaGameContainer.classList.add('hidden');
-            spellingGameContainer.classList.add('hidden');
-            quickMathGameContainer.classList.add('hidden');
+            if (asteroidGameContainer) asteroidGameContainer.classList.add('hidden');
+            if (memoramaGameContainer) memoramaGameContainer.classList.add('hidden');
+            if (spellingGameContainer) spellingGameContainer.classList.add('hidden');
+            if (quickMathGameContainer) quickMathGameContainer.classList.add('hidden');
             // Stop any running game processes when hiding all
             stopGameAsteroidsInternal();
             stopGameMemoramaInternal();
@@ -1081,9 +1134,18 @@
             }
         }
 
+        if (globalMuteButton) {
+            globalMuteButton.addEventListener('click', toggleGlobalMute);
+        } else {
+            console.warn("Element with ID 'globalMuteButton' not found.");
+        }
+
+
         function toggleGlobalMute() {
             isMasterMuted = !isMasterMuted;
-            globalMuteButton.textContent = isMasterMuted ? "Activar Sonido" : "Silenciar Todo";
+            if (globalMuteButton) {
+                globalMuteButton.textContent = isMasterMuted ? "Activar Sonido" : "Silenciar Todo";
+            }
 
             // Actualizar volumen de todos los synths
             if (mainMenuSynth) mainMenuSynth.volume.value = isMasterMuted ? -100 : -25;
@@ -1098,12 +1160,10 @@
             if (quickMathBackgroundSynth) quickMathBackgroundSynth.volume.value = isMasterMuted ? -100 : -20;
         }
 
-        globalMuteButton.addEventListener('click', toggleGlobalMute);
-
 
         // --- Lógica del Minijuego Esquiva los Asteroides ---
         const canvasAsteroids = document.getElementById('gameCanvasAsteroids');
-        const ctxAsteroids = canvasAsteroids.getContext('2d');
+        const ctxAsteroids = canvasAsteroids ? canvasAsteroids.getContext('2d') : null;
 
         const timeDisplayAsteroids = document.getElementById('timeDisplayAsteroids');
         const livesDisplayAsteroids = document.getElementById('livesDisplayAsteroids');
@@ -1171,12 +1231,18 @@
         });
 
         function updateKeyDebugDisplay() {
-            const activeKeys = Object.keys(keysAsteroids).filter(key => keysAsteroids[key]);
-            keyDebugDisplay.textContent = `Teclas: ${activeKeys.join(', ')}`;
+            if (keyDebugDisplay) {
+                const activeKeys = Object.keys(keysAsteroids).filter(key => keysAsteroids[key]);
+                keyDebugDisplay.textContent = `Teclas: ${activeKeys.join(', ')}`;
+            }
         }
 
         // Function to resize the canvas dynamically
         function resizeCanvasAsteroids() {
+            if (!canvasAsteroids) {
+                console.warn("Canvas for Asteroids game not found for resizing.");
+                return;
+            }
             const containerWidth = canvasAsteroids.parentElement.offsetWidth;
             // Maintain aspect ratio (e.g., 640x320, so width is 2x height)
             canvasAsteroids.width = containerWidth;
@@ -1256,8 +1322,8 @@
         }
 
         function updateUIAsteroids() {
-            timeDisplayAsteroids.textContent = `${Math.max(0, 60 - Math.floor(gameTimeAsteroids))}s`;
-            livesDisplayAsteroids.textContent = playerLivesAsteroids;
+            if (timeDisplayAsteroids) timeDisplayAsteroids.textContent = `${Math.max(0, 60 - Math.floor(gameTimeAsteroids))}s`;
+            if (livesDisplayAsteroids) livesDisplayAsteroids.textContent = playerLivesAsteroids;
         }
 
         function endGameAsteroids(won, cheatWin = false) {
@@ -1265,14 +1331,16 @@
             cancelAnimationFrame(animationFrameIdAsteroids);
             stopBackgroundMusicAsteroids();
 
-            gameUIAsteroids.style.display = 'none';
+            if (gameUIAsteroids) gameUIAsteroids.style.display = 'none';
 
             let title, message;
             if (won) {
                 title = "¡VICTORIA!";
                 message = "¡Has sobrevivido a la lluvia de asteroides!";
-                for (let i = 0; i < 100; i++) {
-                    confetti.push(new ConfettiParticle(Math.random() * canvasAsteroids.width, Math.random() * canvasAsteroids.height / 2));
+                if (canvasAsteroids) {
+                    for (let i = 0; i < 100; i++) {
+                        confetti.push(new ConfettiParticle(Math.random() * canvasAsteroids.width, Math.random() * canvasAsteroids.height / 2));
+                    }
                 }
             } else {
                 title = "¡PERDISTE!";
@@ -1293,6 +1361,7 @@
             }
 
             draw() {
+                if (!ctxAsteroids) return; // Ensure context exists
                 if (isInvincibleAsteroids) {
                     ctxAsteroids.globalAlpha = (Math.floor(performance.now() / 100) % 2 === 0) ? 0.5 : 1;
                 }
@@ -1341,6 +1410,8 @@
             }
 
             update() {
+                if (!canvasAsteroids) return; // Ensure canvas exists
+
                 if (keysAsteroids['ArrowLeft'] || keysAsteroids['a']) {
                     this.x -= this.speed;
                 }
@@ -1367,6 +1438,7 @@
             }
 
             draw() {
+                if (!ctxAsteroids) return; // Ensure context exists
                 ctxAsteroids.save();
                 ctxAsteroids.translate(this.x + this.size / 2, this.y + this.size / 2);
                 ctxAsteroids.rotate(this.rotation);
@@ -1399,6 +1471,7 @@
             }
 
             update() {
+                if (!canvasAsteroids) return; // Ensure canvas exists
                 if (this.type === 'guided' && playerAsteroids) {
                     const targetX = playerAsteroids.x + playerAsteroids.width / 2;
                     const currentX = this.x + this.size / 2;
@@ -1434,6 +1507,7 @@
             }
 
             draw() {
+                if (!ctxAsteroids) return; // Ensure context exists
                 ctxAsteroids.save();
                 ctxAsteroids.globalAlpha = this.alpha;
                 ctxAsteroids.fillStyle = this.color;
@@ -1454,9 +1528,9 @@
 
         function startGameAsteroidsLogic() {
             if (gameRunningAsteroids) return;
-            startScreenAsteroids.classList.add('hidden');
-            gameUIAsteroids.classList.remove('hidden');
-            gameUIAsteroids.style.display = 'flex';
+            if (startScreenAsteroids) startScreenAsteroids.classList.add('hidden'); else console.warn("startScreenAsteroids not found.");
+            if (gameUIAsteroids) gameUIAsteroids.classList.remove('hidden'); else console.warn("gameUIAsteroids not found.");
+            if (gameUIAsteroids) gameUIAsteroids.style.display = 'flex';
             resetGameAsteroids();
             gameRunningAsteroids = true;
             lastFrameTimeAsteroids = performance.now();
@@ -1482,13 +1556,18 @@
             keysAsteroids = {}; // Reset keys state
             updateKeyDebugDisplay(); // Update debug display
 
-            startScreenTitleAsteroids.textContent = "Esquiva los Asteroides";
-            startScreenMessageAsteroids.textContent = "Sobrevive 60 segundos a una lluvia de asteroides. Este minijuego te ayudará a mejorar tus reflejos y tu tiempo de reacción. 🚀✨";
-            startScreenButtonAsteroids.textContent = "¡Comenzar!";
+            if (startScreenTitleAsteroids) startScreenTitleAsteroids.textContent = "Esquiva los Asteroides";
+            if (startScreenMessageAsteroids) startScreenMessageAsteroids.textContent = "Sobrevive 60 segundos a una lluvia de asteroides. Este minijuego te ayudará a mejorar tus reflejos y tu tiempo de reacción. 🚀✨";
+            if (startScreenButtonAsteroids) startScreenButtonAsteroids.textContent = "¡Comenzar!";
 
             resizeCanvasAsteroids(); 
             
-            playerAsteroids = new PlayerAsteroids(canvasAsteroids.width / 2 - PLAYER_SIZE_ASTEROIDS / 2, canvasAsteroids.height - PLAYER_SIZE_ASTEROIDS * 2, PLAYER_SIZE_ASTEROIDS, PLAYER_SIZE_ASTEROIDS, 5);
+            if (canvasAsteroids) {
+                playerAsteroids = new PlayerAsteroids(canvasAsteroids.width / 2 - PLAYER_SIZE_ASTEROIDS / 2, canvasAsteroids.height - PLAYER_SIZE_ASTEROIDS * 2, PLAYER_SIZE_ASTEROIDS, PLAYER_SIZE_ASTEROIDS, 5);
+            } else {
+                console.error("Canvas for Asteroids game not found, cannot initialize player.");
+                return;
+            }
             playerLivesAsteroids = 2;
             isInvincibleAsteroids = false;
             invincibilityEndTimeAsteroids = 0;
@@ -1503,21 +1582,23 @@
             lastHologramSpawnTime = performance.now();
 
             stars = [];
-            for (let i = 0; i < 50; i++) {
-                stars.push({
-                    x: Math.random() * canvasAsteroids.width,
-                    y: Math.random() * canvasAsteroids.height,
-                    size: Math.random() * 1 + 0.5,
-                    speed: Math.random() * 0.1 + 0.05
-                });
-            }
-            for (let i = 0; i < 50; i++) {
-                stars.push({
-                    x: Math.random() * canvasAsteroids.width,
-                    y: Math.random() * canvasAsteroids.height,
-                    size: Math.random() * 2 + 1,
-                    speed: Math.random() * 0.3 + 0.1
-                });
+            if (canvasAsteroids) {
+                for (let i = 0; i < 50; i++) {
+                    stars.push({
+                        x: Math.random() * canvasAsteroids.width,
+                        y: Math.random() * canvasAsteroids.height,
+                        size: Math.random() * 1 + 0.5,
+                        speed: Math.random() * 0.1 + 0.05
+                    });
+                }
+                for (let i = 0; i < 50; i++) {
+                    stars.push({
+                        x: Math.random() * canvasAsteroids.width,
+                        y: Math.random() * canvasAsteroids.height,
+                        size: Math.random() * 2 + 1,
+                        speed: Math.random() * 0.3 + 0.1
+                    });
+                }
             }
 
             currentWarningAsteroids = { message: "", displayUntil: 0 };
@@ -1528,6 +1609,10 @@
 
         function gameLoopAsteroids(currentTime) {
             if (!gameRunningAsteroids && !awaitingMenuTapAsteroids) return;
+            if (!ctxAsteroids || !canvasAsteroids) {
+                console.error("Canvas context or element missing for Asteroids game loop.");
+                return;
+            }
 
             const deltaTime = currentTime - lastFrameTimeAsteroids;
             lastFrameTimeAsteroids = currentTime;
@@ -1548,6 +1633,8 @@
         }
 
         function updateAsteroids(deltaTime) {
+            if (!canvasAsteroids) return; // Ensure canvas exists
+
             if (gameRunningAsteroids) {
                 playerAsteroids.update();
 
@@ -1677,6 +1764,8 @@
         }
 
         function drawAsteroids() {
+            if (!ctxAsteroids || !canvasAsteroids) return; // Ensure context and canvas exist
+
             ctxAsteroids.clearRect(0, 0, canvasAsteroids.width, canvasAsteroids.height);
 
             // Draw stars with parallax
@@ -1748,8 +1837,16 @@
             confetti.forEach(p => p.draw());
         }
 
-        startScreenButtonAsteroids.addEventListener('click', startGameAsteroidsLogic);
-        backToMenuButtonAsteroids.addEventListener('click', showMainMenu);
+        if (startScreenButtonAsteroids) {
+            startScreenButtonAsteroids.addEventListener('click', startGameAsteroidsLogic);
+        } else {
+            console.warn("Element with ID 'startScreenButtonAsteroids' not found.");
+        }
+        if (backToMenuButtonAsteroids) {
+            backToMenuButtonAsteroids.addEventListener('click', showMainMenu);
+        } else {
+            console.warn("Element with ID 'backToMenuButtonAsteroids' not found.");
+        }
 
 
         // --- Lógica del Minijuego Memorama ---
@@ -1782,7 +1879,7 @@
         let lowTimeSequenceMemorama;
         let isLowTimeMusicPlaying = false;
 
-        const EMOJIS = ['🍎', '🍌', '🍒', '🍇', '🍋', '🥝', '�', '🍍', '🍉', '🍊', '🍐', '🍑'];
+        const EMOJIS = ['🍎', '🍌', '🍒', '🍇', '🍋', '🥝', '🍓', '🍍', '🍉', '🍊', '🍐', '🍑'];
 
         function setupAudioMemorama() {
             if (!memoramaSynth) {
@@ -1869,9 +1966,9 @@
 
         function startGameMemoramaLogic() {
             if (gameRunningMemorama) return;
-            startScreenMemorama.classList.add('hidden');
-            gameUIMemorama.classList.remove('hidden');
-            gameUIMemorama.style.display = 'flex';
+            if (startScreenMemorama) startScreenMemorama.classList.add('hidden'); else console.warn("startScreenMemorama not found.");
+            if (gameUIMemorama) gameUIMemorama.classList.remove('hidden'); else console.warn("gameUIMemorama not found.");
+            if (gameUIMemorama) gameUIMemorama.style.display = 'flex';
             resetGameMemorama();
             gameRunningMemorama = true;
 
@@ -1892,27 +1989,31 @@
             canFlip = true;
             timeElapsedMemorama = 0;
             isLowTimeMusicPlaying = false;
-            memoramaGameContainer.classList.remove('low-time-warning');
-            gameBoardMemorama.innerHTML = '';
+            if (memoramaGameContainer) memoramaGameContainer.classList.remove('low-time-warning');
+            if (gameBoardMemorama) gameBoardMemorama.innerHTML = ''; else console.warn("gameBoardMemorama not found.");
 
-            startScreenTitleMemorama.textContent = "Memorama";
-            startScreenMessageMemorama.textContent = `Encuentra todas las parejas de emojis en ${GAME_DURATION_MEMORAMA} segundos. ¡Entrena tu memoria!`;
-            startScreenButtonMemorama.textContent = "¡Comenzar!";
+            if (startScreenTitleMemorama) startScreenTitleMemorama.textContent = "Memorama";
+            if (startScreenMessageMemorama) startScreenMessageMemorama.textContent = `Encuentra todas las parejas de emojis en ${GAME_DURATION_MEMORAMA} segundos. ¡Entrena tu memoria!`;
+            if (startScreenButtonMemorama) startScreenButtonMemorama.textContent = "¡Comenzar!";
 
             const shuffledEmojis = [...EMOJIS, ...EMOJIS].sort(() => Math.random() - 0.5);
-            totalPairsDisplayMemorama.textContent = EMOJIS.length;
+            if (totalPairsDisplayMemorama) totalPairsDisplayMemorama.textContent = EMOJIS.length;
 
-            shuffledEmojis.forEach((emoji, index) => {
-                const cardElement = document.createElement('div');
-                cardElement.classList.add('card');
-                cardElement.dataset.emoji = emoji;
-                cardElement.dataset.index = index;
-                cardElement.textContent = '?';
+            if (gameBoardMemorama) {
+                shuffledEmojis.forEach((emoji, index) => {
+                    const cardElement = document.createElement('div');
+                    cardElement.classList.add('card');
+                    cardElement.dataset.emoji = emoji;
+                    cardElement.dataset.index = index;
+                    cardElement.textContent = '?';
 
-                cardElement.addEventListener('click', () => flipCard(cardElement, index));
-                gameBoardMemorama.appendChild(cardElement);
-                memoramaCards.push({ element: cardElement, emoji: emoji, isFlipped: false, isMatched: false });
-            });
+                    cardElement.addEventListener('click', () => flipCard(cardElement, index));
+                    gameBoardMemorama.appendChild(cardElement);
+                    memoramaCards.push({ element: cardElement, emoji: emoji, isFlipped: false, isMatched: false });
+                });
+            } else {
+                console.error("gameBoardMemorama not found, cannot create cards.");
+            }
 
             updateUIMemorama();
         }
@@ -1942,7 +2043,7 @@
                         card2.element.textContent = '✔';
                         card2.element.classList.add('card-matched-symbol');
 
-                        memoramaSynth.triggerAttackRelease("C5", "8n");
+                        if (memoramaSynth) memoramaSynth.triggerAttackRelease("C5", "8n");
                         matchedPairs++;
                         updateUIMemorama();
                         checkWinConditionMemorama();
@@ -1953,7 +2054,7 @@
                         card2.element.textContent = '?';
                         card1.isFlipped = false;
                         card2.isFlipped = false;
-                        memoramaSynth.triggerAttackRelease("C3", "8n");
+                        if (memoramaSynth) memoramaSynth.triggerAttackRelease("C3", "8n");
                     }
                     flippedCards = [];
                     canFlip = true;
@@ -1964,17 +2065,17 @@
         function updateTimerMemorama() {
             timeElapsedMemorama++;
             const timeLeft = GAME_DURATION_MEMORAMA - timeElapsedMemorama;
-            timeDisplayMemorama.textContent = `${Math.max(0, timeLeft)}s`;
+            if (timeDisplayMemorama) timeDisplayMemorama.textContent = `${Math.max(0, timeLeft)}s`;
 
             if (timeLeft <= LOW_TIME_THRESHOLD_MEMORAMA && timeLeft > 0) {
-                memoramaGameContainer.classList.add('low-time-warning');
+                if (memoramaGameContainer) memoramaGameContainer.classList.add('low-time-warning');
                 if (!isLowTimeMusicPlaying) {
                     stopBackgroundMusicMemorama();
                     startLowTimeMusicMemorama();
                     isLowTimeMusicPlaying = true;
                 }
             } else {
-                memoramaGameContainer.classList.remove('low-time-warning');
+                if (memoramaGameContainer) memoramaGameContainer.classList.remove('low-time-warning');
                 if (isLowTimeMusicPlaying) {
                     stopLowTimeMusicMemorama();
                     startBackgroundMusicMemorama();
@@ -1989,8 +2090,8 @@
 
         function updateUIMemorama() {
             const timeLeft = GAME_DURATION_MEMORAMA - timeElapsedMemorama;
-            timeDisplayMemorama.textContent = `${Math.max(0, timeLeft)}s`;
-            matchedPairsDisplayMemorama.textContent = matchedPairs;
+            if (timeDisplayMemorama) timeDisplayMemorama.textContent = `${Math.max(0, timeLeft)}s`;
+            if (matchedPairsDisplayMemorama) matchedPairsDisplayMemorama.textContent = matchedPairs;
         }
 
         function checkWinConditionMemorama() {
@@ -2004,8 +2105,8 @@
             clearInterval(timerIntervalMemorama);
             stopBackgroundMusicMemorama();
             stopLowTimeMusicMemorama();
-            memoramaGameContainer.classList.remove('low-time-warning');
-            gameUIMemorama.style.display = 'none';
+            if (memoramaGameContainer) memoramaGameContainer.classList.remove('low-time-warning');
+            if (gameUIMemorama) gameUIMemorama.style.display = 'none';
 
             let title, message;
             if (won) {
@@ -2018,8 +2119,16 @@
             showModal(title, message, "Volver al Menú Principal", showMainMenu);
         }
 
-        startScreenButtonMemorama.addEventListener('click', startGameMemoramaLogic);
-        backToMenuButtonMemorama.addEventListener('click', showMainMenu);
+        if (startScreenButtonMemorama) {
+            startScreenButtonMemorama.addEventListener('click', startGameMemoramaLogic);
+        } else {
+            console.warn("Element with ID 'startScreenButtonMemorama' not found.");
+        }
+        if (backToMenuButtonMemorama) {
+            backToMenuButtonMemorama.addEventListener('click', showMainMenu);
+        } else {
+            console.warn("Element with ID 'backToMenuButtonMemorama' not found.");
+        }
 
 
         // --- Lógica del Minijuego Ortografía Correcta (Nuevo) ---
@@ -2139,6 +2248,10 @@
         }
 
         function showSpellingGameMessage(message) {
+            if (!spellingGameMessage) {
+                console.warn("Spelling game message element not found.");
+                return;
+            }
             spellingGameMessage.textContent = message;
             spellingGameMessage.classList.remove('hidden');
             spellingGameMessage.style.animation = 'none';
@@ -2150,14 +2263,14 @@
         }
 
         async function fetchWordsFromGemini(mode) {
-            spellingLoadingIndicator.classList.remove('hidden');
-            spellingLoadingMessage.classList.remove('hidden');
-            combinedLevelButtonSpelling.disabled = true;
-            freeModeButtonSpelling.disabled = true;
-            backToMenuButtonSpellingStartScreen.disabled = true;
+            if (spellingLoadingIndicator) spellingLoadingIndicator.classList.remove('hidden');
+            if (spellingLoadingMessage) spellingLoadingMessage.classList.remove('hidden');
+            if (combinedLevelButtonSpelling) combinedLevelButtonSpelling.disabled = true;
+            if (freeModeButtonSpelling) freeModeButtonSpelling.disabled = true;
+            if (backToMenuButtonSpellingStartScreen) backToMenuButtonSpellingStartScreen.disabled = true;
 
-            wordDisplay.textContent = 'Cargando palabras...';
-            spellingResultsContainer.classList.add('hidden');
+            if (wordDisplay) wordDisplay.textContent = 'Cargando palabras...';
+            if (spellingResultsContainer) spellingResultsContainer.classList.add('hidden');
             wordsForGame = [];
 
             try {
@@ -2180,19 +2293,19 @@
                     wordsForGame = wordsFree.sort(() => Math.random() - 0.5);
                 }
                 
-                combinedLevelButtonSpelling.disabled = false;
-                freeModeButtonSpelling.disabled = false;
-                backToMenuButtonSpellingStartScreen.disabled = false;
+                if (combinedLevelButtonSpelling) combinedLevelButtonSpelling.disabled = false;
+                if (freeModeButtonSpelling) freeModeButtonSpelling.disabled = false;
+                if (backToMenuButtonSpellingStartScreen) backToMenuButtonSpellingStartScreen.disabled = false;
 
                 startGameSpellingLogic();
 
             } catch (error) {
                 console.error("Error fetching words from Gemini API:", error);
-                wordDisplay.textContent = 'Error al cargar palabras. Intenta de nuevo.';
+                if (wordDisplay) wordDisplay.textContent = 'Error al cargar palabras. Intenta de nuevo.';
                 showModal('Error de Conexión', 'No se pudieron cargar las palabras debido a un error de red. Verifica tu conexión e intenta de nuevo.', 'Cerrar', showMainMenu);
             } finally {
-                spellingLoadingIndicator.classList.add('hidden');
-                spellingLoadingMessage.classList.add('hidden');
+                if (spellingLoadingIndicator) spellingLoadingIndicator.classList.add('hidden');
+                if (spellingLoadingMessage) spellingLoadingMessage.classList.add('hidden');
             }
         }
 
@@ -2239,9 +2352,9 @@
 
         function startGameSpellingLogic() {
             if (gameRunningSpelling) return;
-            startScreenSpelling.classList.add('hidden');
-            gameUISpelling.classList.remove('hidden');
-            gameUISpelling.style.display = 'flex';
+            if (startScreenSpelling) startScreenSpelling.classList.add('hidden');
+            if (gameUISpelling) gameUISpelling.classList.remove('hidden');
+            if (gameUISpelling) gameUISpelling.style.display = 'flex';
             resetGameSpelling();
             gameRunningSpelling = true;
 
@@ -2256,14 +2369,14 @@
             if (currentSpellingMode === 'freeMode') {
                 timeElapsedSpelling = GAME_DURATIONS_SPELLING['freeMode'];
                 timerIntervalSpelling = setInterval(updateTimerSpelling, 1000);
-                livesDisplaySpelling.parentElement.classList.add('hidden');
-                timeDisplaySpelling.parentElement.classList.remove('hidden');
+                if (livesDisplaySpelling && livesDisplaySpelling.parentElement) livesDisplaySpelling.parentElement.classList.add('hidden');
+                if (timeDisplaySpelling && timeDisplaySpelling.parentElement) timeDisplaySpelling.parentElement.classList.remove('hidden');
             } else if (currentSpellingMode === 'combinedLevel') {
                 playerLivesSpelling = INITIAL_LIVES_COMBINED_LEVEL;
                 timeElapsedSpelling = 0;
                 timerIntervalSpelling = setInterval(updateTimerSpelling, 1000);
-                livesDisplaySpelling.parentElement.classList.remove('hidden');
-                timeDisplaySpelling.parentElement.classList.remove('hidden');
+                if (livesDisplaySpelling && livesDisplaySpelling.parentElement) livesDisplaySpelling.parentElement.classList.remove('hidden');
+                if (timeDisplaySpelling && timeDisplaySpelling.parentElement) timeDisplaySpelling.parentElement.classList.remove('hidden');
                 currentSpellingLevel = 1;
             }
             displayWord();
@@ -2275,8 +2388,8 @@
             timeElapsedSpelling = 0;
             currentWordIndex = 0;
             updateUISpelling();
-            correctButton.disabled = false;
-            incorrectButton.disabled = false;
+            if (correctButton) correctButton.disabled = false;
+            if (incorrectButton) incorrectButton.disabled = false;
         }
 
         function displayWord() {
@@ -2290,7 +2403,7 @@
             }
 
             if (wordsForGame.length > 0 && currentWordIndex < wordsForGame.length) {
-                wordDisplay.textContent = wordsForGame[currentWordIndex].word;
+                if (wordDisplay) wordDisplay.textContent = wordsForGame[currentWordIndex].word;
 
                 if (currentSpellingMode === 'combinedLevel') {
                     if (currentWordIndex === DIFFICULTY_CONFIG_SPELLING.level1.count && currentSpellingLevel === 1) {
@@ -2304,31 +2417,35 @@
 
             } else if (currentSpellingMode === 'freeMode' && timeElapsedSpelling > 0) {
                  fetchWordsFromGemini('freeMode');
-                 wordDisplay.textContent = 'Cargando más palabras...';
+                 if (wordDisplay) wordDisplay.textContent = 'Cargando más palabras...';
             } else {
-                wordDisplay.textContent = 'No hay palabras disponibles.';
-                correctButton.disabled = true;
-                incorrectButton.disabled = true;
+                if (wordDisplay) wordDisplay.textContent = 'No hay palabras disponibles.';
+                if (correctButton) correctButton.disabled = true;
+                if (incorrectButton) incorrectButton.disabled = true;
             }
         }
 
         function checkAnswer(isCorrectGuess) {
             if (!gameRunningSpelling) return;
+            if (currentWordIndex >= wordsForGame.length) { // Prevent error if wordsForGame is empty or index out of bounds
+                console.warn("Attempted to check answer with no words or out of bounds index.");
+                return;
+            }
 
             const currentWord = wordsForGame[currentWordIndex];
             if ((currentWord.correct && isCorrectGuess) || (!currentWord.correct && !isCorrectGuess)) {
                 scoreSpelling++;
-                spellingCorrectSynth.triggerAttackRelease("G4", "8n");
+                if (spellingCorrectSynth) spellingCorrectSynth.triggerAttackRelease("G4", "8n");
             } else {
                 if (currentSpellingMode === 'combinedLevel') {
                     playerLivesSpelling--;
-                    spellingIncorrectSynth.triggerAttackRelease("C#3", "8n");
+                    if (spellingIncorrectSynth) spellingIncorrectSynth.triggerAttackRelease("C#3", "8n");
                     if (playerLivesSpelling <= 0) {
                         endGameSpelling();
                         return;
                     }
                 } else {
-                    spellingIncorrectSynth.triggerAttackRelease("C#3", "8n");
+                    if (spellingIncorrectSynth) spellingIncorrectSynth.triggerAttackRelease("C#3", "8n");
                 }
             }
             updateUISpelling();
@@ -2339,13 +2456,13 @@
         function updateTimerSpelling() {
             if (currentSpellingMode === 'freeMode') {
                 timeElapsedSpelling--;
-                timeDisplaySpelling.textContent = `${Math.max(0, timeElapsedSpelling)}s`;
+                if (timeDisplaySpelling) timeDisplaySpelling.textContent = `${Math.max(0, timeElapsedSpelling)}s`;
                 if (timeElapsedSpelling <= 0) {
                     endGameSpelling();
                 }
             } else if (currentSpellingMode === 'combinedLevel') {
                 timeElapsedSpelling++;
-                timeDisplaySpelling.textContent = `${timeElapsedSpelling}s`;
+                if (timeDisplaySpelling) timeDisplaySpelling.textContent = `${timeElapsedSpelling}s`;
                 if (currentWordIndex >= wordsForGame.length && playerLivesSpelling > 0) {
                     endGameSpelling();
                 }
@@ -2353,9 +2470,9 @@
         }
 
         function updateUISpelling() {
-            scoreDisplaySpelling.textContent = scoreSpelling;
+            if (scoreDisplaySpelling) scoreDisplaySpelling.textContent = scoreSpelling;
             if (currentSpellingMode === 'combinedLevel') {
-                livesDisplaySpelling.textContent = playerLivesSpelling;
+                if (livesDisplaySpelling) livesDisplaySpelling.textContent = playerLivesSpelling;
             }
         }
 
@@ -2363,7 +2480,7 @@
             gameRunningSpelling = false;
             clearInterval(timerIntervalSpelling);
             stopBackgroundMusicSpelling();
-            gameUISpelling.style.display = 'none';
+            if (gameUISpelling) gameUISpelling.style.display = 'none';
 
             let title, message;
             if (currentSpellingMode === 'freeMode') {
@@ -2401,31 +2518,40 @@
         }
 
         async function updateSpellingResultsTable() {
-            spellingResultsTableLocalBody.innerHTML = '';
-            spellingResultsTableGlobalBody.innerHTML = '';
+            if (spellingResultsTableLocalBody) spellingResultsTableLocalBody.innerHTML = '';
+            if (spellingResultsTableGlobalBody) spellingResultsTableGlobalBody.innerHTML = '';
 
             // Local Scores
-            const localRow = spellingResultsTableLocalBody.insertRow();
-            const localModeCell = localRow.insertCell();
-            const localScoreCell = localRow.insertCell();
-            localModeCell.textContent = MODE_NAMES['combinedLevel'];
-            const combinedScore = spellingScores['combinedLevel'];
-            if (combinedScore.score === 0 && combinedScore.total === 0) {
-                localScoreCell.textContent = 'N/A';
-            } else {
-                localScoreCell.textContent = `${combinedScore.score}/${combinedScore.total} en ${combinedScore.time}s`;
+            if (spellingResultsTableLocalBody) {
+                const localRow = spellingResultsTableLocalBody.insertRow();
+                const localModeCell = localRow.insertCell();
+                const localScoreCell = localRow.insertCell();
+                localModeCell.textContent = MODE_NAMES['combinedLevel'];
+                const combinedScore = spellingScores['combinedLevel'];
+                if (combinedScore.score === 0 && combinedScore.total === 0) {
+                    localScoreCell.textContent = 'N/A';
+                } else {
+                    localScoreCell.textContent = `${combinedScore.score}/${combinedScore.total} en ${combinedScore.time}s`;
+                }
+
+                const localFreeModeRow = spellingResultsTableLocalBody.insertRow();
+                const localFreeModeCell = localFreeModeRow.insertCell();
+                const localFreeModeScoreCell = localFreeModeRow.insertCell();
+                localFreeModeCell.textContent = MODE_NAMES['freeMode'];
+                localFreeModeScoreCell.textContent = spellingScores['freeMode'] === 0 ? 'N/A' : `${spellingScores['freeMode']} correctas`;
             }
 
-            const localFreeModeRow = spellingResultsTableLocalBody.insertRow();
-            const localFreeModeCell = localFreeModeRow.insertCell();
-            const localFreeModeScoreCell = localFreeModeRow.insertCell();
-            localFreeModeCell.textContent = MODE_NAMES['freeMode'];
-            localFreeModeScoreCell.textContent = spellingScores['freeMode'] === 0 ? 'N/A' : `${spellingScores['freeMode']} correctas`;
 
             // Global Leaderboard (Free Mode)
-            if (db) {
+            if (db && spellingResultsTableGlobalBody) {
                 try {
                     // Fetch top 10 by score, then sort by timestamp in JS if scores are tied
+                    // NOTE: This query requires appropriate Firebase Security Rules to allow read access.
+                    // Example rule for public data:
+                    // match /artifacts/{appId}/public/data/{collectionId}/{document=**} {
+                    //   allow read: if request.auth != null;
+                    //   allow write: if request.auth != null;
+                    // }
                     const q = query(collection(db, `artifacts/${appId}/public/data/spellingFreeModeLeaderboard`), orderBy("score", "desc"), limit(10));
                     const querySnapshot = await getDocs(q);
                     let globalScores = [];
@@ -2463,7 +2589,7 @@
                     cell.textContent = 'Error al cargar el ranking global.';
                     cell.classList.add('text-center', 'text-red-400');
                 }
-            } else {
+            } else if (spellingResultsTableGlobalBody) {
                 const row = spellingResultsTableGlobalBody.insertRow();
                 const cell = row.insertCell();
                 cell.colSpan = 3;
@@ -2471,22 +2597,46 @@
                 cell.classList.add('text-center', 'text-gray-400');
             }
 
-            spellingResultsContainer.classList.remove('hidden');
+            if (spellingResultsContainer) spellingResultsContainer.classList.remove('hidden');
         }
 
-        combinedLevelButtonSpelling.addEventListener('click', () => {
-            currentSpellingMode = 'combinedLevel';
-            fetchWordsFromGemini('combinedLevel');
-        });
-        freeModeButtonSpelling.addEventListener('click', () => {
-            currentSpellingMode = 'freeMode';
-            fetchWordsFromGemini('freeMode');
-        });
+        if (combinedLevelButtonSpelling) {
+            combinedLevelButtonSpelling.addEventListener('click', () => {
+                currentSpellingMode = 'combinedLevel';
+                fetchWordsFromGemini('combinedLevel');
+            });
+        } else {
+            console.warn("Element with ID 'combinedLevelButtonSpelling' not found.");
+        }
+        if (freeModeButtonSpelling) {
+            freeModeButtonSpelling.addEventListener('click', () => {
+                currentSpellingMode = 'freeMode';
+                fetchWordsFromGemini('freeMode');
+            });
+        } else {
+            console.warn("Element with ID 'freeModeButtonSpelling' not found.");
+        }
 
-        correctButton.addEventListener('click', () => checkAnswer(true));
-        incorrectButton.addEventListener('click', () => checkAnswer(false));
-        backToMenuButtonSpelling.addEventListener('click', showMainMenu);
-        backToMenuButtonSpellingStartScreen.addEventListener('click', showMainMenu);
+        if (correctButton) {
+            correctButton.addEventListener('click', () => checkAnswer(true));
+        } else {
+            console.warn("Element with ID 'correctButton' not found.");
+        }
+        if (incorrectButton) {
+            incorrectButton.addEventListener('click', () => checkAnswer(false));
+        } else {
+            console.warn("Element with ID 'incorrectButton' not found.");
+        }
+        if (backToMenuButtonSpelling) {
+            backToMenuButtonSpelling.addEventListener('click', showMainMenu);
+        } else {
+            console.warn("Element with ID 'backToMenuButtonSpelling' not found.");
+        }
+        if (backToMenuButtonSpellingStartScreen) {
+            backToMenuButtonSpellingStartScreen.addEventListener('click', showMainMenu);
+        } else {
+            console.warn("Element with ID 'backToMenuButtonSpellingStartScreen' not found.");
+        }
 
 
         // --- Lógica del Minijuego Sumas Rápidas (Nuevo) ---
@@ -2597,6 +2747,10 @@
         }
 
         function showQuickMathGameMessage(message) {
+            if (!quickMathGameMessage) {
+                console.warn("Quick Math game message element not found.");
+                return;
+            }
             quickMathGameMessage.textContent = message;
             quickMathGameMessage.classList.remove('hidden');
             quickMathGameMessage.style.animation = 'none';
@@ -2609,9 +2763,9 @@
 
         function startGameQuickMathLogic() {
             if (quickMathGameRunning) return;
-            startScreenQuickMath.classList.add('hidden');
-            gameUIQuickMath.classList.remove('hidden');
-            gameUIQuickMath.style.display = 'flex';
+            if (startScreenQuickMath) startScreenQuickMath.classList.add('hidden');
+            if (gameUIQuickMath) gameUIQuickMath.classList.remove('hidden');
+            if (gameUIQuickMath) gameUIQuickMath.style.display = 'flex';
             resetGameQuickMath();
             quickMathGameRunning = true;
 
@@ -2626,19 +2780,19 @@
             if (currentQuickMathMode === 'freeMode') {
                 quickMathTimeElapsed = GAME_DURATION_QUICKMATH_FREEMODE;
                 quickMathTimerInterval = setInterval(updateTimerQuickMath, 1000);
-                livesDisplayQuickMath.parentElement.classList.add('hidden');
-                timeDisplayQuickMath.parentElement.classList.remove('hidden');
+                if (livesDisplayQuickMath && livesDisplayQuickMath.parentElement) livesDisplayQuickMath.parentElement.classList.add('hidden');
+                if (timeDisplayQuickMath && timeDisplayQuickMath.parentElement) timeDisplayQuickMath.parentElement.classList.remove('hidden');
             } else if (currentQuickMathMode === 'combinedLevel') {
                 quickMathLives = INITIAL_LIVES_QUICKMATH;
                 quickMathTimeElapsed = 0;
                 quickMathTimerInterval = setInterval(updateTimerQuickMath, 1000);
-                livesDisplayQuickMath.parentElement.classList.remove('hidden');
-                timeDisplayQuickMath.parentElement.classList.remove('hidden');
+                if (livesDisplayQuickMath && livesDisplayQuickMath.parentElement) livesDisplayQuickMath.parentElement.classList.remove('hidden');
+                if (timeDisplayQuickMath && timeDisplayQuickMath.parentElement) timeDisplayQuickMath.parentElement.classList.remove('hidden');
                 currentQuickMathLevel = 1;
                 quickMathProblemsAnswered = 0;
             }
             generateAndDisplayProblem();
-            answerInput.focus();
+            if (answerInput) answerInput.focus();
         }
 
         function resetGameQuickMath() {
@@ -2649,9 +2803,9 @@
             quickMathProblemsAnswered = 0;
             currentQuickMathProblem = null;
             updateUIQuickMath();
-            answerInput.value = '';
-            submitAnswerButton.disabled = false;
-            answerInput.disabled = false;
+            if (answerInput) answerInput.value = '';
+            if (submitAnswerButton) submitAnswerButton.disabled = false;
+            if (answerInput) answerInput.disabled = false;
         }
 
         function generateProblem() {
@@ -2692,13 +2846,17 @@
 
         function generateAndDisplayProblem() {
             generateProblem();
-            problemDisplay.textContent = `${currentQuickMathProblem.problem} = ?`;
-            answerInput.value = '';
-            answerInput.focus();
+            if (problemDisplay) problemDisplay.textContent = `${currentQuickMathProblem.problem} = ?`;
+            if (answerInput) answerInput.value = '';
+            if (answerInput) answerInput.focus();
         }
 
         function checkAnswerQuickMath() {
             if (!quickMathGameRunning) return;
+            if (!answerInput || !problemDisplay) {
+                console.warn("Answer input or problem display not found.");
+                return;
+            }
 
             const userAnswer = parseInt(answerInput.value, 10);
             if (isNaN(userAnswer)) {
@@ -2707,17 +2865,17 @@
 
             if (userAnswer === currentQuickMathProblem.answer) {
                 quickMathScore++;
-                quickMathCorrectSynth.triggerAttackRelease("G4", "8n");
+                if (quickMathCorrectSynth) quickMathCorrectSynth.triggerAttackRelease("G4", "8n");
             } else {
                 if (currentQuickMathMode === 'combinedLevel') {
                     quickMathLives--;
-                    quickMathIncorrectSynth.triggerAttackRelease("C#3", "8n");
+                    if (quickMathIncorrectSynth) quickMathIncorrectSynth.triggerAttackRelease("C#3", "8n");
                     if (quickMathLives <= 0) {
                         endGameQuickMath();
                         return;
                     }
                 } else {
-                    quickMathIncorrectSynth.triggerAttackRelease("C#3", "8n");
+                    if (quickMathIncorrectSynth) quickMathIncorrectSynth.triggerAttackRelease("C#3", "8n");
                 }
             }
             quickMathProblemsAnswered++;
@@ -2728,13 +2886,13 @@
         function updateTimerQuickMath() {
             if (currentQuickMathMode === 'freeMode') {
                 quickMathTimeElapsed--;
-                timeDisplayQuickMath.textContent = `${Math.max(0, quickMathTimeElapsed)}s`;
+                if (timeDisplayQuickMath) timeDisplayQuickMath.textContent = `${Math.max(0, quickMathTimeElapsed)}s`;
                 if (quickMathTimeElapsed <= 0) {
                     endGameQuickMath();
                 }
             } else if (currentQuickMathMode === 'combinedLevel') {
                 quickMathTimeElapsed++;
-                timeDisplayQuickMath.textContent = `${quickMathTimeElapsed}s`;
+                if (timeDisplayQuickMath) timeDisplayQuickMath.textContent = `${quickMathTimeElapsed}s`;
                 if (quickMathProblemsAnswered >= TOTAL_PROBLEMS_QUICKMATH_COMBINED && quickMathLives > 0) {
                     endGameQuickMath();
                 }
@@ -2742,9 +2900,9 @@
         }
 
         function updateUIQuickMath() {
-            scoreDisplayQuickMath.textContent = quickMathScore;
+            if (scoreDisplayQuickMath) scoreDisplayQuickMath.textContent = quickMathScore;
             if (currentQuickMathMode === 'combinedLevel') {
-                livesDisplayQuickMath.textContent = quickMathLives;
+                if (livesDisplayQuickMath) livesDisplayQuickMath.textContent = quickMathLives;
             }
         }
 
@@ -2752,7 +2910,7 @@
             quickMathGameRunning = false;
             clearInterval(quickMathTimerInterval);
             stopBackgroundMusicQuickMath();
-            gameUIQuickMath.style.display = 'none';
+            if (gameUIQuickMath) gameUIQuickMath.style.display = 'none';
 
             let title, message;
             if (currentQuickMathMode === 'freeMode') {
@@ -2790,31 +2948,39 @@
         }
 
         async function updateQuickMathResultsTable() {
-            quickMathResultsTableLocalBody.innerHTML = '';
-            quickMathResultsTableGlobalBody.innerHTML = '';
+            if (quickMathResultsTableLocalBody) quickMathResultsTableLocalBody.innerHTML = '';
+            if (quickMathResultsTableGlobalBody) quickMathResultsTableGlobalBody.innerHTML = '';
 
             // Local Scores
-            const localRow = quickMathResultsTableLocalBody.insertRow();
-            const localModeCell = localRow.insertCell();
-            const localScoreCell = localRow.insertCell();
-            localModeCell.textContent = MODE_NAMES['combinedLevel'];
-            const combinedScore = quickMathScores['combinedLevel'];
-            if (combinedScore.score === 0 && combinedScore.total === 0) {
-                localScoreCell.textContent = 'N/A';
-            } else {
-                localScoreCell.textContent = `${combinedScore.score}/${combinedScore.total} en ${combinedScore.time}s`;
+            if (quickMathResultsTableLocalBody) {
+                const localRow = quickMathResultsTableLocalBody.insertRow();
+                const localModeCell = localRow.insertCell();
+                const localScoreCell = localRow.insertCell();
+                localModeCell.textContent = MODE_NAMES['combinedLevel'];
+                const combinedScore = quickMathScores['combinedLevel'];
+                if (combinedScore.score === 0 && combinedScore.total === 0) {
+                    localScoreCell.textContent = 'N/A';
+                } else {
+                    localScoreCell.textContent = `${combinedScore.score}/${combinedScore.total} en ${combinedScore.time}s`;
+                }
+
+                const localFreeModeRow = quickMathResultsTableLocalBody.insertRow();
+                const localFreeModeCell = localFreeModeRow.insertCell();
+                const localFreeModeScoreCell = localFreeModeRow.insertCell();
+                localFreeModeCell.textContent = MODE_NAMES['freeMode'];
+                localFreeModeScoreCell.textContent = quickMathScores['freeMode'] === 0 ? 'N/A' : `${quickMathScores['freeMode']} correctas`;
             }
 
-            const localFreeModeRow = quickMathResultsTableLocalBody.insertRow();
-            const localFreeModeCell = localFreeModeRow.insertCell();
-            const localFreeModeScoreCell = localFreeModeRow.insertCell();
-            localFreeModeCell.textContent = MODE_NAMES['freeMode'];
-            localFreeModeScoreCell.textContent = quickMathScores['freeMode'] === 0 ? 'N/A' : `${quickMathScores['freeMode']} correctas`;
-
             // Global Leaderboard (Free Mode)
-            if (db) {
+            if (db && quickMathResultsTableGlobalBody) {
                 try {
                     // Fetch top 10 by score, then sort by timestamp in JS if scores are tied
+                    // NOTE: This query requires appropriate Firebase Security Rules to allow read access.
+                    // Example rule for public data:
+                    // match /artifacts/{appId}/public/data/{collectionId}/{document=**} {
+                    //   allow read: if request.auth != null;
+                    //   allow write: if request.auth != null;
+                    // }
                     const q = query(collection(db, `artifacts/${appId}/public/data/quickMathFreeModeLeaderboard`), orderBy("score", "desc"), limit(10));
                     const querySnapshot = await getDocs(q);
                     let globalScores = [];
@@ -2852,7 +3018,7 @@
                     cell.textContent = 'Error al cargar el ranking global.';
                     cell.classList.add('text-center', 'text-red-400');
                 }
-            } else {
+            } else if (quickMathResultsTableGlobalBody) {
                 const row = quickMathResultsTableGlobalBody.insertRow();
                 const cell = row.insertCell();
                 cell.colSpan = 3;
@@ -2860,67 +3026,110 @@
                 cell.classList.add('text-center', 'text-gray-400');
             }
 
-            quickMathResultsContainer.classList.remove('hidden');
+            if (quickMathResultsContainer) quickMathResultsContainer.classList.remove('hidden');
         }
 
-        combinedLevelButtonQuickMath.addEventListener('click', () => {
-            currentQuickMathMode = 'combinedLevel';
-            startGameQuickMathLogic();
-        });
-        freeModeButtonQuickMath.addEventListener('click', () => {
-            currentQuickMathMode = 'freeMode';
-            startGameQuickMathLogic();
-        });
+        if (combinedLevelButtonQuickMath) {
+            combinedLevelButtonQuickMath.addEventListener('click', () => {
+                currentQuickMathMode = 'combinedLevel';
+                startGameQuickMathLogic();
+            });
+        } else {
+            console.warn("Element with ID 'combinedLevelButtonQuickMath' not found.");
+        }
+        if (freeModeButtonQuickMath) {
+            freeModeButtonQuickMath.addEventListener('click', () => {
+                currentQuickMathMode = 'freeMode';
+                startGameQuickMathLogic();
+            });
+        } else {
+            console.warn("Element with ID 'freeModeButtonQuickMath' not found.");
+        }
 
-        submitAnswerButton.addEventListener('click', checkAnswerQuickMath);
-        answerInput.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                checkAnswerQuickMath();
-            }
-        });
-        backToMenuButtonQuickMath.addEventListener('click', showMainMenu);
-        backToMenuButtonQuickMathStartScreen.addEventListener('click', showMainMenu);
+        if (submitAnswerButton) {
+            submitAnswerButton.addEventListener('click', checkAnswerQuickMath);
+        } else {
+            console.warn("Element with ID 'submitAnswerButton' not found.");
+        }
+        if (answerInput) {
+            answerInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    checkAnswerQuickMath();
+                }
+            });
+        } else {
+            console.warn("Element with ID 'answerInput' not found for keydown listener.");
+        }
+        if (backToMenuButtonQuickMath) {
+            backToMenuButtonQuickMath.addEventListener('click', showMainMenu);
+        } else {
+            console.warn("Element with ID 'backToMenuButtonQuickMath' not found.");
+        }
+        if (backToMenuButtonQuickMathStartScreen) {
+            backToMenuButtonQuickMathStartScreen.addEventListener('click', showMainMenu);
+        } else {
+            console.warn("Element with ID 'backToMenuButtonQuickMathStartScreen' not found.");
+        }
 
 
         // --- Lógica de Inicio y Cambio de Juegos ---
-        startGameAsteroidsButton.addEventListener('click', () => {
-            console.log("Asteroids button clicked!"); // Debug log
-            hideMainMenu();
-            hideAllGames();
-            asteroidGameContainer.classList.remove('hidden');
-            resetGameAsteroids();
-            setupAudioAsteroids();
-        });
+        if (startGameAsteroidsButton) {
+            startGameAsteroidsButton.addEventListener('click', () => {
+                console.log("Asteroids button clicked!"); // Debug log
+                hideMainMenu();
+                hideAllGames();
+                if (asteroidGameContainer) asteroidGameContainer.classList.remove('hidden');
+                resetGameAsteroids();
+                setupAudioAsteroids();
+            });
+        } else {
+            console.warn("Element with ID 'startGameAsteroidsButton' not found.");
+        }
 
-        startGameMemoramaButton.addEventListener('click', () => {
-            console.log("Memorama button clicked!"); // Debug log
-            hideMainMenu();
-            hideAllGames();
-            memoramaGameContainer.classList.remove('hidden');
-            resetGameMemorama();
-            setupAudioMemorama();
-        });
+        if (startGameMemoramaButton) {
+            startGameMemoramaButton.addEventListener('click', () => {
+                console.log("Memorama button clicked!"); // Debug log
+                hideMainMenu();
+                hideAllGames();
+                if (memoramaGameContainer) memoramaGameContainer.classList.remove('hidden');
+                resetGameMemorama();
+                setupAudioMemorama();
+            });
+        } else {
+            console.warn("Element with ID 'startGameMemoramaButton' not found.");
+        }
 
-        startGameSpellingButton.addEventListener('click', async () => {
-            console.log("Spelling button clicked!"); // Debug log
-            hideMainMenu();
-            hideAllGames();
-            spellingGameContainer.classList.remove('hidden');
-            setupAudioSpelling();
-            updateSpellingResultsTable();
-        });
+        if (startGameSpellingButton) {
+            startGameSpellingButton.addEventListener('click', async () => {
+                console.log("Spelling button clicked!"); // Debug log
+                hideMainMenu();
+                hideAllGames();
+                if (spellingGameContainer) spellingGameContainer.classList.remove('hidden');
+                setupAudioSpelling();
+                updateSpellingResultsTable();
+            });
+        } else {
+            console.warn("Element with ID 'startGameSpellingButton' not found.");
+        }
 
-        startGameQuickMathButton.addEventListener('click', async () => {
-            console.log("Quick Math button clicked!"); // Debug log
-            hideMainMenu();
-            hideAllGames();
-            quickMathGameContainer.classList.remove('hidden');
-            setupAudioQuickMath();
-            updateQuickMathResultsTable();
-        });
+        if (startGameQuickMathButton) {
+            startGameQuickMathButton.addEventListener('click', async () => {
+                console.log("Quick Math button clicked!"); // Debug log
+                hideMainMenu();
+                hideAllGames();
+                if (quickMathGameContainer) quickMathGameContainer.classList.remove('hidden');
+                setupAudioQuickMath();
+                updateQuickMathResultsTable();
+            });
+        } else {
+            console.warn("Element with ID 'startGameQuickMathButton' not found.");
+        }
+
 
         // Configuración inicial al cargar la página principal
-        window.onload = () => {
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM Content Loaded. Initializing app...");
+
             setupMainMenuAudio();
             setupAudioAsteroids();
             setupAudioMemorama();
@@ -2941,8 +3150,7 @@
 
             showMainMenu();
             hideAllGames(); // Ensure all games are hidden initially
-        };
+        });
     </script>
 </body>
 </html>
-�
